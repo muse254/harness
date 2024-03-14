@@ -1,5 +1,5 @@
 [workspace]
-members = ["harness", "harness-macro"]
+members = ["harness-cdk", "harness-cli", "harness-macro"]
 resolver = "2"
 
 # [workspace.package]

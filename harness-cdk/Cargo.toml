@@ -1,0 +1,13 @@
+[package]
+name = "harness-cdk"
+version = "0.1.0"
+edition = "2021"
+authors = ["Osoro Bironga"]
+readme = "README.md"
+
+[dependencies]
+thiserror = "1.0"
+anyhow = "1.0.81"
+candid = "0.10.5"
+wapc-guest = "1.1.0"
+harness-macro = { path = "../harness-macro" }
