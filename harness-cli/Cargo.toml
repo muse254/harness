@@ -2,6 +2,7 @@
 name = "harness-cli"
 version = "0.1.0"
 edition = "2021"
-
+authors = [" Osoro Bironga <fanosoro@gmail.com>"]
+readme = "README.md"
 
 [dependencies]

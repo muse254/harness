@@ -2,7 +2,8 @@
 name = "harness-macros"
 version = "0.1.0"
 edition = "2021"
-authors = ["Osoro Bironga"]
+authors = [" Osoro Bironga <fanosoro@gmail.com>"]
+readme = "README.md"
 
 [lib]
 proc-macro = true
