@@ -10,7 +10,7 @@ thiserror = "1.0"
 anyhow = "1.0.81"
 candid = "0.10.5"
 wapc-guest = "1.1.0"
-harness-macro = { path = "../harness-macro" }
+harness-macro = { path = "../harness-macros" }
 linkme = "0.3.25"
 
 [features]

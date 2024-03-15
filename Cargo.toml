@@ -1,3 +1,3 @@
 [workspace]
-members = ["harness-cdk", "harness-cli", "harness-macro"]
+members = ["harness-cdk", "harness-cli", "harness-macros", "harness-node"]
 resolver = "2"
