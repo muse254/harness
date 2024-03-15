@@ -11,3 +11,8 @@ anyhow = "1.0.81"
 candid = "0.10.5"
 wapc-guest = "1.1.0"
 harness-macro = { path = "../harness-macro" }
+linkme = "0.3.25"
+
+[features]
+# This feature is private and should not be activated manually, see (harness-cli)[../harness-cli]
+__harness-build = ["harness-macro/__harness-build"]
