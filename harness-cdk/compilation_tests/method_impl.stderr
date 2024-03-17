@@ -1,0 +1,7 @@
+error: harness can only be used on free-standing functions
+ --> compilation_tests/method_impl.rs:5:1
+  |
+5 | #[harness]
+  | ^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `harness` (in Nightly builds, run with -Z macro-backtrace for more info)

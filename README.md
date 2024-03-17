@@ -26,7 +26,6 @@ Why not use the Internet Computer directly?
 
 1. Foster adoption and decentralization. The IC needs relatively powerful hardware to run canisters, in our case this happens but also there are companion devices that can be used to run applications; like phones, tablets, and IoT devices.
 
-2. Like most abstractions, the Harness Network should offer good developer experience. It can also be used outside the context of the IC and Canisters, leveraging the candid protocol
-it's also multilingual.
+2. Like most abstractions, the Harness Network should offer good developer experience. It can also be used outside the context of the IC and Canisters as it leverages the candid protocol. This makes it multilingual, [here](https://github.com/dfinity/candid?tab=readme-ov-file#implementations) is a complete list.
 
 PRs/Issues and Proposals for changes are welcome.
