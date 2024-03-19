@@ -2,7 +2,7 @@
 name = "harness-macros"
 version = "0.1.0"
 edition = "2021"
-authors = [" Osoro Bironga <fanosoro@gmail.com>"]
+authors = ["Osoro Bironga <fanosoro@gmail.com>"]
 readme = "README.md"
 
 [lib]

@@ -1,7 +1,6 @@
 #![cfg(feature = "__harness-build")]
 
-use core::panic;
-use std::{assert_eq, println};
+use std::assert_eq;
 
 use candid::{Decode, DecoderConfig, Encode};
 use harness_cdk::{harness, harness_export};
