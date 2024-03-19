@@ -1,0 +1,7 @@
+error: harness cannot be use on associated functions with `self` parameter
+ --> compilation_tests/associated_fn.rs:6:5
+  |
+6 |     #[harness]
+  |     ^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `harness` (in Nightly builds, run with -Z macro-backtrace for more info)

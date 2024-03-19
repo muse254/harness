@@ -1,5 +1,5 @@
 error: harness can only be used on free-standing functions
- --> compilation_tests/method_impl.rs:5:1
+ --> compilation_tests/unsupported_impl.rs:5:1
   |
 5 | #[harness]
   | ^^^^^^^^^^

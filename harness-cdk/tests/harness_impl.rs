@@ -2,8 +2,8 @@
 
 use std::assert_eq;
 
-use candid::{Decode, DecoderConfig, Encode};
-use harness_cdk::{harness, harness_export};
+use harness_cdk::{harness, Decode, Encode};
+use ic_cdk::query;
 
 #[test]
 fn candid_serde() {
@@ -11,22 +11,32 @@ fn candid_serde() {
     // encode value
     let val = Encode!(&original_val).unwrap();
     // decode value
-    let val = Decode!([DecoderConfig::new()]; &val, (u8, String)).unwrap();
+    let val = Decode!(&val, (u8, String)).unwrap();
     assert_eq!(original_val, val);
 }
 
 #[test]
 fn simple_function_test() {
-    #[harness]
+    #[harness(strip = ["something", "else"])]
+    #[query]
     fn hello(msg: String) -> String {
         format!("Hello, {msg}!")
     }
 
-    harness_export!();
-
     let res = __harness_hello(&Encode!(&String::from("World")).unwrap()).unwrap();
     assert_eq!(
-        Decode!([DecoderConfig::new()]; &res, String).unwrap(),
+        Decode!(&res, String).unwrap(),
         String::from("Hello, World!")
     );
+}
+
+#[test]
+fn simple_function_test_no_return() {
+    #[harness]
+    fn hi(name: String) {
+        println!("Hi, {name}");
+    }
+
+    let res = __harness_hi(&Encode!(&()).unwrap()).unwrap();
+    assert_eq!(Decode!(&res, String).unwrap(), String::from("Hi"))
 }

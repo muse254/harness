@@ -5,6 +5,11 @@ edition = "2021"
 authors = ["Osoro Bironga <fanosoro@gmail.com>"]
 readme = "README.md"
 
+[[test]]
+name = "compilation_tests"
+path = "compilation_tests/all.rs"
+required-features = ["harness-macros/__harness-build"]
+
 [dependencies]
 thiserror = "1.0"
 anyhow = "1.0.81"
@@ -14,6 +19,8 @@ harness-macros = { path = "../harness-macros" }
 
 [dev-dependencies]
 rustversion = "1.0"
+trybuild = "1.0"
+ic-cdk = "0.13"
 
 [features]
 # This feature is private and should not be activated manually, see (harness-cli)[../harness-cli]

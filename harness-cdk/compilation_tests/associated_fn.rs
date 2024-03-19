@@ -2,8 +2,8 @@ use harness_cdk::harness;
 
 struct Unit;
 
-#[harness]
 impl Unit {
+    #[harness]
     fn hello(&self, msg: String) -> String {
         format!("Hello, {msg}!")
     }
