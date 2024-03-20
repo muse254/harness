@@ -1,22 +1,24 @@
-struct Arbiter {
-    harness_code: Vec<u8>,
-}
+// const HARNESS_WASM: &[u8] =
+//     include_bytes!("../../examples/hello/target/wasm32-unknown-unknown/release/hello_backend.wasm");
 
-/*
-1. After building the harness code, have a way to list all functions that were built.
-2. 
-*/
+// pub trait Arbiter {}
 
-impl Arbiter {
-    pub(crate) fn new() -> Result<Self> {
-        let code_path = env!("HARNESS_WASM_PATH");
+// struct Arbiter {
+//     harness_code: Vec<u8>,
+// }
 
-        Self { harness_code }
-    }
+// /*
+// 1. After building the harness code, have a way to list all functions that were built.
+// 2.
+// */
+// impl Arbiter {
+//     pub(crate) fn new() -> Result<Self> {
+//         let code_path = env!("HARNESS_WASM_PATH");
 
-    pub fn harness_code(&self) -> Vec<u8> {
-        todo!()
-    }
-}
+//         Self { harness_code }
+//     }
 
-
+//     pub fn harness_code(&self) -> Vec<u8> {
+//         todo!()
+//     }
+// }

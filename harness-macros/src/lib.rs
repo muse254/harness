@@ -31,6 +31,7 @@ use quote::{quote, ToTokens};
 use std::sync::Mutex;
 use syn::{Error, ItemFn, Signature, Type};
 
+mod bootstrap;
 mod strip;
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
@@ -55,6 +56,12 @@ pub fn harness(attr: TokenStream, item: TokenStream) -> TokenStream {
     match syn::parse::<syn::ItemFn>(item) {
         Ok(func) => {
             if cfg!(not(feature = "__harness-build")) {
+                // if HARNESS_BUILD is provided, we can now bootstrap the Arbiter code
+                if bootstrap::HARNESS_BUILD.is_some() {
+                    return bootstrap::bootstrap(func)
+                        .map_or_else(|e| e.to_compile_error().into(), Into::into);
+                }
+
                 // here to allow error discovery
                 return TokenStream::from(func.to_token_stream());
             }
@@ -94,11 +101,26 @@ pub fn harness(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// This macro is responsible for generating the `wapc_init` function that registers all the harness functions.
 /// It should be called after all the harness functions have been annotated with `#[harness]`.
+///
+/// FIXME: Not stable, as it
+/// 1. does not understand modules
+/// 2. dirty global state shared for all modules
+/// 3. invocation is bad dev experience; should be automatic
 #[must_use = "this macro should be invoked at the end of the file to register all harness functions"]
 #[proc_macro]
 pub fn harness_export(input: TokenStream) -> TokenStream {
     if cfg!(not(feature = "__harness-build")) {
-        return input;
+        if bootstrap::HARNESS_BUILD.is_some() {
+            return bootstrap::harness_export_bootstrap()
+                .map_or_else(|e| e.to_compile_error().into(), Into::into);
+        }
+
+        return syn::Error::new(
+            Span::call_site(),
+            "HARNESS_BUILD is not set, build with `--features __harness-build` and set HARNESS_BUILD to the wasm file path",
+        )
+        .to_compile_error()
+        .into();
     }
 
     if !input.is_empty() {
@@ -143,7 +165,7 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
 }
 
 fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
-    let (arg_types, ret_types) = get_args(&func.sig)?;
+    let (arg_types, ret_types) = bootstrap::get_args(&func.sig)?;
 
     // redundant check, but we want to be sure
     if ret_types.len() > 1 {
@@ -210,27 +232,4 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
 
     // TODO: since were building for harness only, strip the ic_cdk annotations; leave other annotations?
     Ok(TokenStream::from(harness_impl))
-}
-
-// Carried over from `candid_derive`
-fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
-    let mut args = Vec::new();
-    for arg in &sig.inputs {
-        match arg {
-            syn::FnArg::Receiver(r) => {
-                if r.reference.is_none() {
-                    return Err(Error::new_spanned(arg, "only works for borrowed self"));
-                }
-            }
-            syn::FnArg::Typed(syn::PatType { ty, .. }) => args.push(ty.as_ref().clone()),
-        }
-    }
-    let rets = match &sig.output {
-        syn::ReturnType::Default => Vec::new(),
-        syn::ReturnType::Type(_, ty) => match ty.as_ref() {
-            Type::Tuple(tuple) => tuple.elems.iter().cloned().collect(),
-            _ => vec![ty.as_ref().clone()],
-        },
-    };
-    Ok((args, rets))
 }

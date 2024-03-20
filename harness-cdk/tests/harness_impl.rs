@@ -37,6 +37,6 @@ fn simple_function_test_no_return() {
         println!("Hi, {name}");
     }
 
-    let res = __harness_hi(&Encode!(&()).unwrap()).unwrap();
-    assert_eq!(Decode!(&res, String).unwrap(), String::from("Hi"))
+    let res = __harness_hi(&Encode!(&String::from("stranger")).unwrap()).unwrap();
+    assert!(res.is_empty());
 }

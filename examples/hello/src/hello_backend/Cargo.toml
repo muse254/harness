@@ -17,3 +17,4 @@ opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
+strip = true
