@@ -16,6 +16,9 @@ anyhow = "1.0.81"
 candid = "0.10.5"
 wapc-guest = "1.1.0"
 harness-macros = { path = "../harness-macros" }
+ic-stable-structures = "0.6.3"
+serde = "1.0.197"
+ic-cdk = "0.13.1"
 
 [dev-dependencies]
 rustversion = "1.0"

@@ -1,2 +1,2 @@
-mod bootstrap;
-mod strip;
+mod extractor;
+mod schema;
