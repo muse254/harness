@@ -1,16 +1,11 @@
-use std::borrow::Cow;
-
-use candid::Encode;
-use ic_stable_structures::Storable;
-
 pub struct Arbiter {
     devices: Vec<String>,
 }
 
 impl Arbiter {}
 
-// const HARNESS_WASM: &[u8] =
-//     include_bytes!("../../examples/hello/target/wasm32-unknown-unknown/release/hello_backend.wasm");
+const HARNESS_WASM: &[u8] =
+    include_bytes!("../../examples/hello/target/wasm32-unknown-unknown/release/hello_backend.wasm");
 
 // struct Arbiter {
 //     harness_code: Vec<u8>,

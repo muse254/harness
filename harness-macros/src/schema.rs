@@ -1,34 +1,39 @@
+use candid::CandidType;
+use syn::{self, Signature};
+
 pub(crate) const HARNESS_SCHEMA: Option<&'static str> = option_env!("HARNESS_SCHEMA");
 
-/// This struct represents the schema of a harness program.
+/// This represents the schema of a harness program.
 pub(crate) struct Schema {
     version: Option<String>,
     program: Option<String>,
-    services: Vec<Services>,
+    services: Vec<Service>,
 }
 
-/// This struct identifies a service of the harness program.
-struct Service {
+/// This defines a harness service
+pub(crate) struct Service {
     name: String,
+    //  sig: Signature,
 }
 
 impl Schema {
-    fn new(functions: &[(String, String)]) -> Self {
-        let version = std::env::var("CARGO_PKG_VERSION");
-        let program = std::env::var("CARGO_PKG_NAME");
+    pub fn new() -> Self {
+        let version = std::env::var("CARGO_PKG_VERSION").ok();
+        let program = std::env::var("CARGO_PKG_NAME").ok();
 
         Self {
             version,
             program,
-            services: functions
-                .iter()
-                .map(|(name, doc)| Service {
-                    name: name.clone(),
-                    doc: doc.clone(),
-                })
-                .collect(),
+            services: vec![],
         }
     }
-}
 
-pub(crate) fn generate_schema() -> Schema {}
+    pub fn add_service(mut self, name: String, item: &syn::Signature) -> Self {
+        let service = Service {
+            name,
+            //  sig: item.clone(),
+        };
+        self.services.push(service);
+        self
+    }
+}

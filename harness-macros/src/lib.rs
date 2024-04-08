@@ -1,13 +1,5 @@
 //! This crate provides the `harness` and `harness_export` macros.
-//!
-//! To create a harness function, use the `harness` macro on a function and
-//! then call `harness_export` at the end of the file to register all harness functions.
-//! ```rust,ignore,no_run
-//! #[harness]
-//! fn hello(msg: String) -> String {
-//!    format!("Hello, {msg}!")
-//! }
-//! ```
+
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
@@ -15,7 +7,8 @@ use std::sync::Mutex;
 use syn::{Error, ItemFn, Signature, Type};
 
 mod bootstrap;
-// mod strip;
+mod schema;
+use schema::{Schema, Service};
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
 const RESERVED_METHODS: [&str; 1] = ["wapc_init"];
@@ -28,13 +21,37 @@ type FnMap = Vec<(String, String)>;
 lazy_static::lazy_static! {
     static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> =
     Mutex::new(Some(Vec::new()));
+
+    static ref HARNESS_SCHEMA: Mutex<Schema> = Mutex::new(Schema::new());
 }
 
 /// This macro is responsible for generating `harness` compatible implementations.
 /// Any valid function compatible with `ic_cdk` annotations can be used with this macro
-/// because they serde to candid types.
+/// because they serde to candid types. That is to say, the i/o types of the functions can be
+/// serialized as candid types.
 ///
-/// It only triggers when the flag `__harness-build` is used
+/// To create a harness function, use the `harness` macro on a function and
+/// then call `harness_export` at the end of the file to register all harness functions.
+///
+/// # Examples
+///
+/// ```
+/// use harness_macros::{harness, harness_export};
+///
+/// #[harness]
+/// fn hello(msg: String) -> String {
+///    format!("Hello, {msg}!")
+/// }
+///
+/// harness_export!();
+/// ```
+///
+/// We are building the application using a two-pass approach. Should refer to this [script](./) for more details.
+///
+/// In the first pass, we are building the harness compatible code into a wasm binary file.
+/// In which case it is important to use the `--features __harness-build` flag.
+///
+/// In the second pass, our last pass, we are bundling the binary bytes into canister code with the relevant infrastructure.
 #[proc_macro_attribute]
 pub fn harness(attr: TokenStream, item: TokenStream) -> TokenStream {
     match syn::parse::<syn::ItemFn>(item) {
@@ -84,12 +101,7 @@ pub fn harness(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// This macro is responsible for generating the `wapc_init` function that registers all the harness functions.
 /// It should be called after all the harness functions have been annotated with `#[harness]` and brought into scope.
-///
-/// FIXME: Not stable, as it !??
-/// 1. does not understand modules
-/// 2. dirty global state shared for all modules
-/// 3. invocation is bad dev experience; should be automatic
-#[must_use = "this macro should be invoked at the end of the file to register all harness functions"]
+#[must_use = "this macro must be invoked at the end of the file to register all harness functions"]
 #[proc_macro]
 pub fn harness_export(input: TokenStream) -> TokenStream {
     if cfg!(not(feature = "__harness-build")) {

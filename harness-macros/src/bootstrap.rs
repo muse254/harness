@@ -16,20 +16,7 @@ pub(crate) fn harness_export_bootstrap() -> Result<TokenStream> {
         )
     })?;
 
-    // let len = functions.len();
-    // let functions = functions
-    //     .iter()
-    //     .map(|(k, v)| {
-    //         let k = k.as_str();
-    //         let v = v.as_str();
-    //         quote! {
-    //             (#k, #v)
-    //         }
-    //     })
-    //     .collect::<Vec<_>>();
-
     Ok(TokenStream::from(quote! {
-    //    const HARNESS_FUNCTIONS: [(&str, &str); #len] = [#(#functions)*,];
        const HARNESS_WASM: &[u8] = [#(#wasm_bytes)*,];
     }))
 }
