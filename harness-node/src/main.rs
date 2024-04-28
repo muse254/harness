@@ -15,6 +15,9 @@ struct Method<I: CandidType, O: CandidType> {
 
 #[tokio::main]
 async fn main() -> Result<(), errors::Error> {
+    // todo: comes from the Canister Arbiter; calling an endpoint
+    let buf = [];
+
     let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
         .module_bytes(&buf)
         .build()?;
