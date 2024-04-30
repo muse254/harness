@@ -1,42 +1,11 @@
-#![cfg(feature = "__harness-build")]
+//#![allow(unused_parens, unused_imports)]
 
-use linkme::distributed_slice;
+pub use candid::{Decode, DecoderConfig, Encode};
+pub use harness_macros::{harness, harness_export};
+pub use harness_primitives::schema::{Method, Schema};
+pub use wapc_guest::{register_function, CallResult};
 
-pub use harness_macro;
-
-#[distributed_slice]
-static HARNESS_FUNCTIONS: [(&str, fn(&[u8]) -> wapc_guest::CallResult)];
-
-type HarnessFn = fn(&[u8]) -> wapc_guest::CallResult;
-
-/// This macro should be invoked to initialize the harness code
-macro_rules! harness_init {
-    () => {
-        #[no_mangle]
-        pub fn wapc_init() {
-            for (name, func) in HARNESS_FUNCTIONS {
-                wapc_guest::register_function(name, *func)
-            }
-        }
-    };
-}
-
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    use crate::HARNESS_FUNCTIONS;
-    use candid::{Decode, DecoderConfig, Encode};
-    use wapc_guest;
-
-    #[test]
-    fn candid_serde() {
-        let original_val = (1u8, "One".to_string());
-
-        // encode value
-        let val = Encode!(&original_val).unwrap();
-        // decode value
-        let config = DecoderConfig::new();
-        let val = Decode!([config]; &val, (u8, String)).unwrap();
-
-        assert_eq!(original_val, val);
-    }
-}
+mod api;
+mod arbiter;
+mod device;
+mod utils;

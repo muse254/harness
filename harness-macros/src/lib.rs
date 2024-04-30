@@ -1,31 +1,87 @@
-#![recursion_limit = "128"]
-extern crate proc_macro;
+//! This crate provides the `harness` and `harness_export` macros.
 
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
+use std::{str::FromStr, sync::Mutex};
 use syn::{Error, ItemFn, Signature, Type};
+
+use harness_primitives::schema::{Method, Schema};
+
+mod bootstrap;
+mod schema;
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
 const RESERVED_METHODS: [&str; 1] = ["wapc_init"];
 
+// This type maps the vanilla function name to the harness function name.
+// (vanilla_function_name, harness_function_name)
+type FnMap = Vec<(String, String)>;
+
+// FIXME https://github.com/rust-lang/rust/issues/44034
+lazy_static::lazy_static! {
+    static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> =
+    Mutex::new(Some(Vec::new()));
+    static ref HARNESS_SCHEMA: Mutex<Schema> = Mutex::new(Schema::new());
+}
+
 /// This macro is responsible for generating `harness` compatible implementations.
+/// Any valid function compatible with `ic_cdk` annotations can be used with this macro
+/// because they serde to candid types. That is to say, the i/o types of the functions can be
+/// serialized as candid types.
 ///
-/// It only triggers when the flag `harness_impl` is used
+/// To create a harness function, use the `harness` macro on a function and
+/// then call `harness_export` at the end of the file to register all harness functions.
+///
+/// # Examples
+///
+/// ```
+/// use harness_macros::{harness, harness_export};
+///
+/// #[harness]
+/// fn hello(msg: String) -> String {
+///    format!("Hello, {msg}!")
+/// }
+///
+/// harness_export!();
+/// ```
+///
+/// We are building the application using a two-pass approach. Should refer to this [script](./) for more details.
+///
+/// In the first pass, we are building the harness compatible code into a wasm binary file.
+/// In which case it is important to use the `--features __harness-build` flag.
+///
+/// In the second pass, our last pass, we are bundling the binary bytes into canister code with the relevant infrastructure.
 #[proc_macro_attribute]
 pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    match syn::parse::<ItemFn>(item) {
+    match syn::parse::<syn::ItemFn>(item) {
         Ok(func) => {
-            if cfg!(not(feature = "__harness_build")) {
+            if cfg!(not(feature = "__harness-build")) {
+                // if HARNESS_BUILD is provided, we can now bootstrap the Arbiter code
+                if bootstrap::HARNESS_BUILD.is_some() {
+                    // hide the function from the second build
+                    return TokenStream::from(quote!());
+                }
+
                 // here to allow error discovery
                 return TokenStream::from(func.to_token_stream());
+            }
+
+            if func.sig.receiver().is_some() {
+                return TokenStream::from(
+                    syn::Error::new(
+                        Span::call_site(),
+                        "harness cannot be use on associated functions with `self` parameter",
+                    )
+                    .to_compile_error(),
+                );
             }
 
             if RESERVED_METHODS.iter().any(|v| func.sig.ident.eq(v)) {
                 return TokenStream::from(
                     syn::Error::new(
                         Span::call_site(),
-                        &format!("use of a reserved function name {}", func.sig.ident),
+                        format!("use of a reserved function name {}", func.sig.ident),
                     )
                     .to_compile_error(),
                 );
@@ -36,20 +92,107 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
         Err(_) => TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "harness can only be used on free-standing functions.",
+                "harness can only be used on free-standing functions",
             )
             .to_compile_error(),
         ),
     }
 }
 
+/// This macro is responsible for generating the `wapc_init` function that registers all the harness functions.
+/// It should be called after all the harness functions have been annotated with `#[harness]` and brought into scope.
+#[must_use = "this macro must be invoked at the end of the file to register all harness functions"]
+#[proc_macro]
+pub fn harness_export(input: TokenStream) -> TokenStream {
+    if cfg!(not(feature = "__harness-build")) {
+        if bootstrap::HARNESS_BUILD.is_some() {
+            return bootstrap::harness_export_bootstrap()
+                .map_or_else(|e| e.to_compile_error().into(), Into::into);
+        }
+
+        return syn::Error::new(
+            Span::call_site(),
+            "HARNESS_BUILD is not set, build with `--features __harness-build` and set HARNESS_BUILD to the wasm file path",
+        )
+        .to_compile_error()
+        .into();
+    }
+
+    if !input.is_empty() {
+        return syn::Error::new(Span::call_site(), "harness_export! takes no arguments")
+            .to_compile_error()
+            .into();
+    }
+
+    let registration = HARNESS_FUNCTIONS
+        .lock()
+        .unwrap()
+        .clone()
+        .unwrap()
+        .iter()
+        .map(|(k, v)| {
+            let v = syn::parse_str::<Ident>(v).unwrap();
+            quote! {
+                harness_cdk::register_function(#k, #v);
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let schema = HARNESS_SCHEMA.lock().unwrap().clone();
+    let mut methods = Vec::new();
+    for service in schema.services.iter() {
+        let args = service
+            .args
+            .iter()
+            .map(|t| {
+                TokenStream::from_str(t)
+                    .expect("valid token stream on initialization")
+                    .into()
+            })
+            .collect::<Vec<_>>();
+
+        let rets = service
+            .rets
+            .iter()
+            .map(|t| {
+                TokenStream::from_str(t)
+                    .expect("valid token stream on initialization")
+                    .into()
+            })
+            .collect::<Vec<_>>();
+
+        let wrapper = schema::SchemaMethodWrapper {
+            name: service.name.clone(),
+            args,
+            rets,
+        };
+
+        methods.push(wrapper.create_method());
+    }
+
+    TokenStream::from(quote! {
+        #[no_mangle]
+        pub const HARNESS_SCHEMA: harness_cdk::Schema = Schema {
+            version: #schema.version,
+            program: #schema.program,
+            services: vec![#(#methods),*],
+        };
+
+        #[no_mangle]
+        pub fn wapc_init() {
+            #(#registration)*
+        }
+    })
+}
+
 fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
     let (arg_types, ret_types) = get_args(&func.sig)?;
 
-    if ret_types.len() <= 1 {
+    // redundant check, but we want to be sure
+    if ret_types.len() > 1 {
         return Err(syn::Error::new(
             Span::call_site(),
-            &format!("we assume is singular or perhaps empty return type"),
+            "we assume a singular or perhaps empty return type".to_string(),
         ));
     }
 
@@ -62,37 +205,82 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
     let ident = &func.sig.ident;
     let base_name = format!("__harness_{ident}");
     let harness_fn_name = Ident::new(&base_name, ident.span());
-    let harness_fn_name_const = Ident::new(&base_name.to_uppercase(), ident.span());
-    let no_return = ret_types.is_empty();
 
-    let harness_function = quote! {
-        // We have this here to allow or discovery of the harness functions
-        #[::linkme::distributed_slice(HARNESS_FUNCTIONS)]
-        static #harness_fn_name_const: fn(&[u8]) -> ::wapc_guest::CallResult = #harness_fn_name;
+    // isolating related TokenStream variables
+    let harness_impl = {
+        let arg_vars = if arg_vars.len() == 1 {
+            let arg_var = &arg_vars[0];
+            quote! {#arg_var}
+        } else {
+            quote! {#(#arg_vars),*}
+        };
 
-        fn #harness_fn_name(payload: &[u8]) -> ::wapc_guest::CallResult {
-            // TODO: allow attributes to be passed to the DecoderConfig, or pick that up from ic_cdk?
-            let (#(#arg_vars,)*) = ::candid::Decode!([::candid::DecoderConfig::new()]; &payload, #(#arg_types),*)?;
+        let fn_invocation = if arg_types.is_empty() {
+            quote! {#ident()}
+        } else {
+            quote! {#ident(#arg_vars)}
+        };
 
-            match #no_return {
-                true => {
-                    crate::#ident(#(#arg_vars),*);
-                    Ok(vec![])
-                },
-                false => {
-                    // if return type exists, value is of a singular type or composite type
-                    let bytes =  ::candid::Encode!(crate::#ident(#(#arg_vars),*));
-                    Ok(bytes.to_vec())
+        let decode_invocation = if arg_types.is_empty() {
+            quote! {}
+        } else {
+            quote! {
+                // TODO: allow attributes to be passed to the DecoderConfig, or pick that up from ic_cdk?
+                let (#arg_vars) = harness_cdk::Decode!(&payload, #(#arg_types),*)?;
+            }
+        };
+
+        let no_return = ret_types.is_empty();
+        quote! {
+            fn #harness_fn_name(payload: &[u8]) -> harness_cdk::CallResult {
+                #func
+                #decode_invocation
+                if #no_return {
+                    #fn_invocation;
+                    return Ok(vec![]);
                 }
+                Ok(harness_cdk::Encode!(&#fn_invocation)?)
             }
         }
     };
 
-    Ok(TokenStream::from(quote! {
-        // TODO: since were building for harness only, strip the ic_cdk annotations; leave other annotations?
-        #func
-        #harness_function
-    }))
+    if let Some(functions) = HARNESS_FUNCTIONS.lock().unwrap().as_mut() {
+        functions.push((
+            ident.to_string(),
+            format!("{}", harness_fn_name.to_token_stream()),
+        ));
+    }
+
+    if let Ok(mut schema) = HARNESS_SCHEMA.lock() {
+        let args = arg_types
+            .iter()
+            .map(|t| {
+                quote! {
+                    let mut env = ::candid::types::internal::TypeContainer::new();
+                    env.add::<#t>().to_string()
+                }
+                .to_string()
+            })
+            .collect();
+        let rets = ret_types
+            .iter()
+            .map(|t| {
+                quote! {
+                    let mut env = ::candid::types::internal::TypeContainer::new();
+                    env.add::<#t>().to_string()
+                }
+                .to_string()
+            })
+            .collect();
+
+        schema.add_service(Method {
+            name: ident.to_string(),
+            args,
+            rets,
+        });
+    }
+
+    Ok(TokenStream::from(harness_impl))
 }
 
 // Carried over from `candid_derive`

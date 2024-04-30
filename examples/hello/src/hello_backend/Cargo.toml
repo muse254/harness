@@ -1,0 +1,20 @@
+[package]
+name = "hello_backend"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.10.5"
+ic-cdk = "0.13"
+harness-cdk = { path = "../../../../harness-cdk" }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+strip = true

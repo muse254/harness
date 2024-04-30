@@ -2,7 +2,13 @@
 name = "harness-node"
 version = "0.1.0"
 edition = "2021"
-authors = [" Osoro Bironga <fanosoro@gmail.com>"]
+authors = ["Osoro Bironga <fanosoro@gmail.com>"]
 readme = "README.md"
 
 [dependencies]
+axum = "0.7.5"
+candid = "0.10.6"
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
+wapc = "1.1.0"
+wapc-codec = "1.1.0"
+wasmtime-provider = "1.16.0"

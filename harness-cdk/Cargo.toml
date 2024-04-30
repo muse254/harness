@@ -2,17 +2,30 @@
 name = "harness-cdk"
 version = "0.1.0"
 edition = "2021"
-authors = [" Osoro Bironga <fanosoro@gmail.com>"]
+authors = ["Osoro Bironga <fanosoro@gmail.com>"]
 readme = "README.md"
+
+[[test]]
+name = "compilation_tests"
+path = "compilation_tests/all.rs"
+required-features = ["harness-macros/__harness-build"]
 
 [dependencies]
 thiserror = "1.0"
 anyhow = "1.0.81"
 candid = "0.10.5"
 wapc-guest = "1.1.0"
-harness-macro = { path = "../harness-macros" }
-linkme = "0.3.25"
+harness-macros = { path = "../harness-macros" }
+harness-primitives = { path = "../harness-primitives" }
+ic-stable-structures = "0.6.3"
+serde = "1.0.197"
+ic-cdk = "0.13.1"
+
+[dev-dependencies]
+rustversion = "1.0"
+trybuild = "1.0"
+ic-cdk = "0.13"
 
 [features]
 # This feature is private and should not be activated manually, see (harness-cli)[../harness-cli]
-__harness-build = ["harness-macro/__harness-build"]
+__harness-build = ["harness-macros/__harness-build"]
