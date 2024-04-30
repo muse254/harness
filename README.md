@@ -4,6 +4,13 @@ This project creates a system that allows a project to use decentralized devices
 
 > Work in progress
 
+## TODO
+- [ ] Node implementations
+- [ ] CDK implementation
+- [x] Macros base implementation
+- [ ] Test examples
+- [ ] Running harness on chain
+ 
 ## Release notes
 
 Release notes and unreleased changes can be found in the [CHANGELOG](./CHANGELOG.md).
