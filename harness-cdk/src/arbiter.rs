@@ -1,28 +1,57 @@
-pub struct Arbiter {
-    devices: Vec<String>,
-}
+use std::cell::RefCell;
 
-impl Arbiter {}
+use ic_cdk::api::management_canister::http_request::HttpResponse;
 
+use crate::device::Device;
+
+// FIXME: placeholder
 const HARNESS_WASM: &[u8] =
     include_bytes!("../../examples/hello/target/wasm32-unknown-unknown/release/hello_backend.wasm");
 
-// struct Arbiter {
-//     harness_code: Vec<u8>,
+pub struct Arbiter {
+    devices: Vec<Device>,
+}
+
+thread_local! {
+    static Devices: RefCell<Vec<Device>> = RefCell::new(Vec::new());
+}
+
+type HeaderField = (String, String);
+
+struct HttpRequest {
+    method: String,
+    url: String,
+    headers: Vec<HeaderField>,
+    body: Vec<u8>,
+}
+
+// struct HttpResponse {
+//     status_code: u16,
+//     headers: Vec<HeaderField>,
+//     body: Vec<u8>,
 // }
 
-// /*
-// 1. After building the harness code, have a way to list all functions that were built.
-// 2.
-// */
-// impl Arbiter {
-//     pub(crate) fn new() -> Result<Self> {
-//         let code_path = env!("HARNESS_WASM_PATH");
+fn http_request(req: HttpRequest) -> HttpResponse {
+    return todo!("http_request");
+}
 
-//         Self { harness_code }
-//     }
+// #[update]
+// pub fn register_device(url: String, headers: Vec<(String, String)>) {
+//     Devices.with(|devices| {
+//         devices.borrow_mut().push(Device {
+//             id: ic_cdk::api::caller(),
+//             url,
+//             headers,
+//         })
+//     });
+// }
 
-//     pub fn harness_code(&self) -> Vec<u8> {
-//         todo!()
-//     }
+// #[update]
+// async fn register_device() -> [u8] {
+//     return todo!();
+// }
+
+// enum Method {
+//     CheckHealth,
+//     SendCall { input: Vec<u8> },
 // }

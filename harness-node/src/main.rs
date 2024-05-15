@@ -1,33 +1,29 @@
-use candid::CandidType;
-use wapc::{errors, WapcHost};
-use wapc_codec::messagepack::{deserialize, serialize};
+use tokio::io::BufStream;
 
-struct Program<const N: usize, const M: usize> {
-    code: [u8; N],
-    callable_methods: [String; M],
-}
-
-struct Method<I: CandidType, O: CandidType> {
-    name: String,
-    input: I,
-    output: O,
-}
+mod network;
 
 #[tokio::main]
-async fn main() -> Result<(), errors::Error> {
-    // todo: comes from the Canister Arbiter; calling an endpoint
-    let buf = [];
+async fn main() -> Result<(), anyhow::Error> {
+    let harness_network = std::env::var("HARNESS_NETWORK")?;
 
-    let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
-        .module_bytes(&buf)
-        .build()?;
-    let guest = WapcHost::new(
-        Box::new(engine),
-        Some(Box::new(move |_a, _b, _c, _d, _e| Ok(vec![]))),
-    )?;
+    // before starting the node's server, we ping the harness network for loadable programs
 
-    let callresult = guest.call("echo", &serialize("hello world").unwrap())?;
-    let result: String = deserialize(&callresult).unwrap();
-    assert_eq!(result, "hello world");
-    Ok(())
+    let (port, listener) = network::start_server().await?;
+
+    loop {
+        let (stream, addr) = listener.accept().await?;
+        let mut stream = BufStream::new(stream);
+
+        tokio::spawn(async move {
+            match network::parse_request(&mut stream).await {
+                Ok(req) => {
+                    // todo
+                    println!("incoming request")
+                }
+                Err(err) => {
+                    eprintln!("{err}")
+                }
+            }
+        });
+    }
 }
