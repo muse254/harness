@@ -1,4 +1,1 @@
-pub mod api;
-
-mod device;
-mod network;
+pub(crate) mod network;

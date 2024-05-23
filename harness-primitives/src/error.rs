@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use thiserror::Error;
 use wapc::errors::Error as WapcError;
 use wasmtime_provider::errors::Error as WasmtimeError;
@@ -15,14 +13,14 @@ pub enum Error {
     IO {
         message: String,
         #[source]
-        nested: Option<Box<dyn std::error::Error + Send + Sync>>,
+        inner: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
     #[error("Internal error: {message}")]
     Internal {
         message: String,
         #[source]
-        nested: Box<dyn std::error::Error + Send + Sync>,
+        inner: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 }
 
@@ -33,7 +31,7 @@ impl Error {
     {
         Error::IO {
             message: message.into(),
-            nested: err.map(|val| val.into()),
+            inner: err.map(|val| val.into()),
         }
     }
 
@@ -43,7 +41,7 @@ impl Error {
     {
         Error::IO {
             message: message.into(),
-            nested: err.map(|val| val.into()),
+            inner: err.map(|val| val.into()),
         }
     }
 }
@@ -52,7 +50,7 @@ impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Error::IO {
             message: e.to_string(),
-            nested: None,
+            inner: None,
         }
     }
 }
@@ -61,7 +59,7 @@ impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         Error::IO {
             message: e.to_string(),
-            nested: None,
+            inner: None,
         }
     }
 }

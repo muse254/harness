@@ -13,5 +13,5 @@ wasm-opt -Oz --strip-debug -o ./assets/hello_harness.wasm ./assets/hello_backend
 #rm ./assets/hello_backend.wasm
 
 # then we build the canister code
-# HARNESS_BUILD="./assets/hello_harness.wasm" cargo build --target wasm32-unknown-unknown --release
-# cp $TARGET/wasm32-unknown-unknown/release/hello_backend.wasm ./assets/
+HARNESS_BUILD="./assets/hello_harness.wasm" cargo build --target wasm32-unknown-unknown --release
+cp $TARGET/wasm32-unknown-unknown/release/hello_backend.wasm ./assets/
