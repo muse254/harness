@@ -57,6 +57,8 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
     match syn::parse::<syn::ItemFn>(item) {
         Ok(func) => {
             if cfg!(not(feature = "__harness-build")) {
+                // todo: work here for the schema generation from the to upstream the schema to the `harness_cdk` @muse254
+
                 // if HARNESS_BUILD is provided, we can now bootstrap the Arbiter code
                 if bootstrap::HARNESS_BUILD.is_some() {
                     // hide the function from the second build
