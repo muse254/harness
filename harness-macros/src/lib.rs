@@ -3,13 +3,10 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use std::{str::FromStr, sync::Mutex};
+use std::sync::Mutex;
 use syn::{Error, ItemFn, Signature, Type};
 
-use harness_primitives::schema::{Method, Schema};
-
 mod bootstrap;
-mod schema;
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
 const RESERVED_METHODS: [&str; 1] = ["wapc_init"];
@@ -20,9 +17,7 @@ type FnMap = Vec<(String, String)>;
 
 // FIXME https://github.com/rust-lang/rust/issues/44034
 lazy_static::lazy_static! {
-    static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> =
-    Mutex::new(Some(Vec::new()));
-    static ref HARNESS_SCHEMA: Mutex<Schema> = Mutex::new(Schema::new());
+    static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> = Mutex::new(Some(Vec::new()));
 }
 
 /// This macro is responsible for generating `harness` compatible implementations.
@@ -140,46 +135,7 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         })
         .collect::<Vec<_>>();
 
-    let schema = HARNESS_SCHEMA.lock().unwrap().clone();
-    let mut methods = Vec::new();
-    for service in schema.services.iter() {
-        let args = service
-            .args
-            .iter()
-            .map(|t| {
-                TokenStream::from_str(t)
-                    .expect("valid token stream on initialization")
-                    .into()
-            })
-            .collect::<Vec<_>>();
-
-        let rets = service
-            .rets
-            .iter()
-            .map(|t| {
-                TokenStream::from_str(t)
-                    .expect("valid token stream on initialization")
-                    .into()
-            })
-            .collect::<Vec<_>>();
-
-        let wrapper = schema::SchemaMethodWrapper {
-            name: service.name.clone(),
-            args,
-            rets,
-        };
-
-        methods.push(wrapper.create_method());
-    }
-
     TokenStream::from(quote! {
-        #[no_mangle]
-        pub const HARNESS_SCHEMA: harness_cdk::Schema = Schema {
-            version: #schema.version,
-            program: #schema.program,
-            services: vec![#(#methods),*],
-        };
-
         #[no_mangle]
         pub fn wapc_init() {
             #(#registration)*
@@ -251,35 +207,6 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
             ident.to_string(),
             format!("{}", harness_fn_name.to_token_stream()),
         ));
-    }
-
-    if let Ok(mut schema) = HARNESS_SCHEMA.lock() {
-        let args = arg_types
-            .iter()
-            .map(|t| {
-                quote! {
-                    let mut env = ::candid::types::internal::TypeContainer::new();
-                    env.add::<#t>().to_string()
-                }
-                .to_string()
-            })
-            .collect();
-        let rets = ret_types
-            .iter()
-            .map(|t| {
-                quote! {
-                    let mut env = ::candid::types::internal::TypeContainer::new();
-                    env.add::<#t>().to_string()
-                }
-                .to_string()
-            })
-            .collect();
-
-        schema.add_service(Method {
-            name: ident.to_string(),
-            args,
-            rets,
-        });
     }
 
     Ok(TokenStream::from(harness_impl))
