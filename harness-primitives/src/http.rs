@@ -4,23 +4,28 @@ use std::{
     io::Cursor,
 };
 
+use candid::{CandidType, Deserialize};
 use tokio::io::{
     AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt,
 };
 
 use crate::error::{self, Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(CandidType, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct HeaderField(pub String, pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, CandidType, Deserialize)]
 pub struct Request {
-    pub method: Method,
+    pub method: String,
     pub path: String,
-    pub headers: HashMap<String, String>,
+    pub headers: Vec<HeaderField>,
     pub data: Vec<u8>,
 }
 
+#[derive(CandidType)]
 pub struct Response<T: AsyncRead + Unpin> {
-    pub status: Status,
-    pub headers: HashMap<String, String>,
+    pub status_code: u16,
+    pub headers: Vec<HeaderField>,
     pub data: T,
 }
 
@@ -30,34 +35,29 @@ impl<T: AsyncRead + Unpin> From<error::Error> for Response<T> {
     }
 }
 
-// impl From<serde_json::Error> for Error {
-//     fn from(e: serde_json::Error) -> Self {
-//         Error::IO {
-//             message: e.to_string(),
-//             inner: None,
-//         }
-//     }
-// }
-
 impl Response<Cursor<Vec<u8>>> {
     pub fn hello() -> Self {
         let data = "Hello, World!".as_bytes();
+
         Self {
-            status: Status::Ok,
-            headers: HashMap::from([("Content-Length".to_string(), data.len().to_string())]),
+            status_code: 202,
+            headers: vec![HeaderField(
+                "Content-Type".to_string(),
+                "text/plain".to_string(),
+            )],
             data: Cursor::new(data.to_vec()),
         }
     }
 
-    pub fn from_bytes(status: Status, data: &[u8]) -> Self {
+    pub fn from_bytes(status_code: u16, data: &[u8]) -> Self {
         let string = String::from;
-        let headers = HashMap::from([
-            (string("Content-Type"), string("application/octet-stream")),
-            (string("Content-Length"), data.len().to_string()),
-        ]);
+        let headers = vec![
+            HeaderField(string("Content-Type"), string("application/octet-stream")),
+            HeaderField(string("Content-Length"), data.len().to_string()),
+        ];
 
         Self {
-            status,
+            status_code,
             headers,
             data: Cursor::new(data.to_vec()),
         }
@@ -69,11 +69,11 @@ impl<T: AsyncRead + Unpin> Response<T> {
         let headers = self
             .headers
             .iter()
-            .map(|(k, v)| format!("{k}: {v}"))
+            .map(|header| format!("{}: {}", header.0, header.1))
             .collect::<Vec<_>>()
             .join("\r\n");
 
-        format!("HTTP/1.1 {}\r\n{headers}\r\n\r\n", self.status)
+        format!("HTTP/1.1 {}\r\n{headers}\r\n\r\n", self.status_code)
     }
 
     pub async fn write<S: AsyncWrite + Unpin>(mut self, stream: &mut S) -> anyhow::Result<()> {
@@ -92,6 +92,8 @@ pub enum Header {
     ProgramId,
     /// The procedure to call into
     ProgramProc,
+    /// The URL of the harness node
+    HarnessNodeUrl,
 }
 
 impl Display for Header {
@@ -99,6 +101,7 @@ impl Display for Header {
         match self {
             Header::ProgramId => write!(f, "Program-Identifier"),
             Header::ProgramProc => write!(f, "Program-Procedure"),
+            Header::HarnessNodeUrl => write!(f, "Harness-Node-Url"),
         }
     }
 }
@@ -154,13 +157,13 @@ pub async fn parse_request<T: AsyncBufRead + Unpin>(mut stream: T) -> Result<Req
 
     let method = parts
         .next()
-        .ok_or(Error::io::<anyhow::Error>("missing method", None))
-        .and_then(TryFrom::try_from)?;
+        .ok_or(Error::io::<anyhow::Error>("missing method", None))?
+        .to_string();
 
     let path = parts
         .next()
         .ok_or(Error::io::<anyhow::Error>("missing path", None))?
-        .into();
+        .to_string();
 
     let mut headers: HashMap<String, String> = HashMap::new();
     let mut data = Vec::new();
@@ -200,9 +203,19 @@ pub async fn parse_request<T: AsyncBufRead + Unpin>(mut stream: T) -> Result<Req
     let req = Request {
         method,
         path,
-        headers,
+        headers: headers
+            .into_iter()
+            .map(|(k, v)| HeaderField(k, v))
+            .collect::<Vec<HeaderField>>(),
         data,
     };
 
     Ok(req)
+}
+
+pub fn get_header(header_key: &str, headers: &[HeaderField]) -> Option<String> {
+    headers
+        .iter()
+        .find(|header| header.0.to_lowercase() == header_key.to_lowercase())
+        .map(|v| v.1.clone())
 }

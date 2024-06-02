@@ -1,7 +1,6 @@
 //! This holds the networking code for a node. TODO/FIXME!?: if target is wasm use fetch api, else continue in tokio
 
 use std::{
-    collections::HashMap,
     io::Cursor,
     net::{Ipv4Addr, SocketAddrV4},
 };
@@ -10,7 +9,7 @@ use tokio::net::TcpListener;
 
 use harness_primitives::{
     error::{Error, Result},
-    http::{Header, Method, Request, Response, Status},
+    http::{get_header, Header, Method, Request, Response},
     HarnessOs,
 };
 
@@ -21,85 +20,75 @@ pub struct NodeServer {
 
 impl NodeServer {
     pub fn handler(&mut self, req: Request) -> Result<Response<Cursor<Vec<u8>>>> {
-        let pattern = (req.method, req.path.as_str());
-
-        match pattern {
+        match (Method::try_from(req.method.as_str())?, req.path.as_str()) {
             (Method::GET, "/hello") => Ok(Response::hello()),
 
             (Method::POST, "/program") => {
                 let program_id =
-                    req.headers
-                        .get(&Header::ProgramId.to_string())
-                        .ok_or(Error::IO {
-                            message: "Program-Identifier header could not be retrieved".to_string(),
-                            inner: None,
-                        })?;
+                    get_header(&Header::ProgramId.to_string(), &req.headers).ok_or(Error::IO {
+                        message: "Program-Identifier header could not be retrieved".to_string(),
+                        inner: None,
+                    })?;
 
                 self.harness_os
                     .add_program(program_id.parse()?, &req.data)?;
 
                 Ok(Response {
-                    status: Status::Created,
-                    headers: HashMap::new(),
+                    status_code: 202,
                     data: Cursor::new(vec![]),
+                    headers: vec![],
                 })
             }
 
             (Method::POST, "/procedure") => {
                 let program_id =
-                    req.headers
-                        .get(&Header::ProgramId.to_string())
-                        .ok_or(Error::IO {
-                            message: "Program-Identifier header could not be retrieved".to_string(),
-                            inner: None,
-                        })?;
+                    get_header(&Header::ProgramId.to_string(), &req.headers).ok_or(Error::IO {
+                        message: "Program-Identifier header could not be retrieved".to_string(),
+                        inner: None,
+                    })?;
 
-                let procedure =
-                    req.headers
-                        .get(&Header::ProgramProc.to_string())
-                        .ok_or(Error::IO {
-                            message: "Program-Procedure header could not be retrieved".to_string(),
-                            inner: None,
-                        })?;
+                let procedure = get_header(&Header::ProgramProc.to_string(), &req.headers).ok_or(
+                    Error::IO {
+                        message: "Program-Procedure header could not be retrieved".to_string(),
+                        inner: None,
+                    },
+                )?;
 
                 let res =
                     self.harness_os
                         .call_operation(&program_id.parse()?, &procedure, &req.data)?;
 
                 Ok(Response {
+                    status_code: 200,
                     data: Cursor::new(res),
-                    status: Status::Ok,
-                    headers: HashMap::new(), // TODO
+                    headers: vec![],
                 })
             }
 
             (Method::DELETE, "/program") => {
                 let program_id =
-                    req.headers
-                        .get(&Header::ProgramId.to_string())
-                        .ok_or(Error::IO {
-                            message: "Program-Identifier header could not be retrieved".to_string(),
-                            inner: None,
-                        })?;
+                    get_header(&Header::ProgramId.to_string(), &req.headers).ok_or(Error::IO {
+                        message: "Program-Identifier header could not be retrieved".to_string(),
+                        inner: None,
+                    })?;
 
                 self.harness_os.remove_program(&program_id.parse()?);
 
                 Ok(Response {
-                    status: Status::Ok,
+                    status_code: 204,
                     data: Cursor::new(vec![]),
-                    headers: HashMap::new(),
+                    headers: vec![],
                 })
             }
 
             (_, _) => Ok(Response {
-                status: Status::NotFound,
+                status_code: 404,
                 data: Cursor::new(vec![]),
-                headers: HashMap::new(),
+                headers: vec![],
             }),
         }
     }
 }
-
 
 /// Starts a server on a random port and returns the port and the listener.
 pub async fn start_server() -> Result<(u16, TcpListener)> {

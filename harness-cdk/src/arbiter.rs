@@ -1,8 +1,11 @@
 use std::cell::RefCell;
 
-use ic_cdk::api::management_canister::http_request::HttpResponse;
+use candid::Nat;
+use ic_cdk::{api::management_canister::http_request::HttpResponse, query};
 
 use crate::device::Device;
+
+use harness_primitives::http::{get_header, Header, HeaderField, Method, Request};
 
 // FIXME: placeholder
 const HARNESS_WASM: &[u8] =
@@ -16,42 +19,37 @@ thread_local! {
     static Devices: RefCell<Vec<Device>> = RefCell::new(Vec::new());
 }
 
-type HeaderField = (String, String);
+#[query]
+fn http_request(req: Request) -> HttpResponse {
+    let method = Method::try_from(req.method.as_str()).unwrap(); //todo
 
-struct HttpRequest {
-    method: String,
-    url: String,
-    headers: Vec<HeaderField>,
-    body: Vec<u8>,
+    match (method, req.path.as_str()) {
+        (Method::GET, "/program") => {
+            // register the device with the arbiter
+            match get_header(&Header::HarnessNodeUrl.to_string(), &req.headers) {
+                Some(url) => {
+                    Devices.with(|devices| {
+                        devices.borrow_mut().push(Device {
+                            id: ic_cdk::api::caller(),
+                            url,
+                            programs: vec!["todo!".to_string()],
+                        })
+                    });
+
+                    return HttpResponse {
+                        status: Nat::from(200u16),
+                        headers: vec![],
+                        body: HARNESS_WASM.to_vec(),
+                    };
+                }
+                None => {
+                    todo!()
+                }
+            }
+        }
+
+        (_, _) => {
+            todo!()
+        }
+    }
 }
-
-// struct HttpResponse {
-//     status_code: u16,
-//     headers: Vec<HeaderField>,
-//     body: Vec<u8>,
-// }
-
-fn http_request(req: HttpRequest) -> HttpResponse {
-    return todo!("http_request");
-}
-
-// #[update]
-// pub fn register_device(url: String, headers: Vec<(String, String)>) {
-//     Devices.with(|devices| {
-//         devices.borrow_mut().push(Device {
-//             id: ic_cdk::api::caller(),
-//             url,
-//             headers,
-//         })
-//     });
-// }
-
-// #[update]
-// async fn register_device() -> [u8] {
-//     return todo!();
-// }
-
-// enum Method {
-//     CheckHealth,
-//     SendCall { input: Vec<u8> },
-// }

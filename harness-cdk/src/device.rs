@@ -14,8 +14,6 @@ pub(crate) struct Device {
     pub id: Principal,
     /// The URL of the device
     pub url: String,
-    /// The public headers of the device, this can be authorization headers, etc.
-    pub headers: Vec<(String, String)>,
     /// The programs that have been loaded to the device
     pub programs: Vec<String>,
 }
