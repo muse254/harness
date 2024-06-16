@@ -3,13 +3,15 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use std::{str::FromStr, sync::Mutex};
+
+use std::{io::BufReader, sync::Mutex};
 use syn::{Error, ItemFn, Signature, Type};
 
-use harness_primitives::schema::{Method, Schema};
+use harness_primitives::internals::{IntermediateSchema, Schema, Service};
+
+//use harness_primitives::schema::{Method, Schema};
 
 mod bootstrap;
-mod schema;
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
 const RESERVED_METHODS: [&str; 1] = ["wapc_init"];
@@ -57,6 +59,8 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
     match syn::parse::<syn::ItemFn>(item) {
         Ok(func) => {
             if cfg!(not(feature = "__harness-build")) {
+                // todo: work here for the schema generation from the to upstream the schema to the `harness_cdk` @muse254
+
                 // if HARNESS_BUILD is provided, we can now bootstrap the Arbiter code
                 if bootstrap::HARNESS_BUILD.is_some() {
                     // hide the function from the second build
@@ -139,45 +143,16 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let schema = HARNESS_SCHEMA.lock().unwrap().clone();
-    let mut methods = Vec::new();
-    for service in schema.services.iter() {
-        let args = service
-            .args
-            .iter()
-            .map(|t| {
-                TokenStream::from_str(t)
-                    .expect("valid token stream on initialization")
-                    .into()
-            })
-            .collect::<Vec<_>>();
-
-        let rets = service
-            .rets
-            .iter()
-            .map(|t| {
-                TokenStream::from_str(t)
-                    .expect("valid token stream on initialization")
-                    .into()
-            })
-            .collect::<Vec<_>>();
-
-        let wrapper = schema::SchemaMethodWrapper {
-            name: service.name.clone(),
-            args,
-            rets,
-        };
-
-        methods.push(wrapper.create_method());
+    if let Err(err) = std::fs::write(
+        std::env::var("OUT_DIR").unwrap() + "/harness_schema.json",
+        serde_json::to_string(&schema).unwrap(),
+    ) {
+        return syn::Error::new(Span::call_site(), err)
+            .to_compile_error()
+            .into();
     }
 
     TokenStream::from(quote! {
-        #[no_mangle]
-        pub const HARNESS_SCHEMA: harness_cdk::Schema = Schema {
-            version: #schema.version,
-            program: #schema.program,
-            services: vec![#(#methods),*],
-        };
-
         #[no_mangle]
         pub fn wapc_init() {
             #(#registration)*
@@ -273,8 +248,8 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
             })
             .collect();
 
-        schema.add_service(Method {
-            name: ident.to_string(),
+        schema.services.push(Service {
+            name: base_name,
             args,
             rets,
         });
@@ -303,5 +278,49 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
             _ => vec![ty.as_ref().clone()],
         },
     };
+
     Ok((args, rets))
+}
+
+/// This macro is responsible for populating the harness schema to be referenced in our canister.
+#[cfg(not(feature = "__harness-build"))]
+#[proc_macro]
+pub fn get_harness_schema(_: TokenStream) -> TokenStream {
+    // HARNESS_SCHEMA is populated on build time
+    let schema: Schema = serde_json::from_reader(BufReader::new(
+        std::fs::File::open(
+            std::env::var("OUT_DIR")
+                .expect("HARNESS_SCHEMA is populated on build time with `__harness-build` feature")
+                + "/harness_schema.json",
+        )
+        .expect("schema file not found"),
+    ))
+    .expect("schema file is not valid json");
+
+    let inter_schema = IntermediateSchema::from(schema);
+
+    let version = inter_schema.version;
+    let name = inter_schema.program;
+    let mut services = Vec::new();
+    for service in inter_schema.services {
+        let name = service.name;
+        let args = service.args;
+        let rets = service.rets;
+
+        services.push(quote! {
+            Service {
+                name: #name,
+                args: vec![#(#args),*],
+                rets: #rets,
+            }
+        });
+    }
+
+    TokenStream::from(quote! {
+       let schema = Schema {
+            name: #name,
+            version: #version,
+            services: vec![#(#services),*],
+        };
+    })
 }

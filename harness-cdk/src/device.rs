@@ -1,6 +1,10 @@
+//! This module contains the definition of the Device struct, which represents a device that can be registered with the arbiter.
+//! A device should speak HTTP and be able to receive and respond to requests.
+
 use std::borrow::Cow;
 
-use candid::{CandidType, Decode, Deserialize, Encode};
+use candid::{CandidType, Decode, Deserialize, Encode, Principal};
+use harness_primitives::ProgramId;
 use ic_stable_structures::{storable::Bound, Storable};
 use serde::Serialize;
 
@@ -8,11 +12,11 @@ use serde::Serialize;
 #[derive(CandidType, Deserialize, Serialize)]
 pub(crate) struct Device {
     /// The unique identifier of the device
-    pub uid: String,
+    pub id: Principal,
     /// The URL of the device
     pub url: String,
-    /// The public headers of the device, this can be authorization headers, etc.
-    pub headers: Vec<(String, String)>,
+    /// The programs that have been loaded to the device
+    pub programs: Vec<ProgramId>,
 }
 
 impl Storable for Device {

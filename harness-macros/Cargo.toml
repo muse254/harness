@@ -19,5 +19,4 @@ harness-primitives = { path = "../harness-primitives" }
 serde_json = "1.0.116"
 
 [features]
-# This feature is private and should not be activated manually, see (harness-cli)[../harness-cli]
 __harness-build = []

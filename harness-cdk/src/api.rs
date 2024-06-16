@@ -9,6 +9,6 @@ struct Response {}
 
 #[update]
 #[candid_method(update)]
-async fn register_device(req: Request) -> Response {
+async fn register_device(_req: Request) -> Response {
     todo!()
 }

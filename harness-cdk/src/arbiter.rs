@@ -1,28 +1,73 @@
-pub struct Arbiter {
-    devices: Vec<String>,
-}
+use std::cell::RefCell;
 
-impl Arbiter {}
+use candid::Nat;
+use ic_cdk::{api::management_canister::http_request::HttpResponse, query};
 
+use crate::device::Device;
+
+use harness_macros::get_harness_schema;
+use harness_primitives::{
+    http::{get_header, Header, Method, Request},
+    program::Program,
+};
+
+// FIXME: placeholder
 const HARNESS_WASM: &[u8] =
     include_bytes!("../../examples/hello/target/wasm32-unknown-unknown/release/hello_backend.wasm");
 
-// struct Arbiter {
-//     harness_code: Vec<u8>,
-// }
+pub(crate) struct Arbiter {
+    devices: Vec<Device>,
+    programs: Vec<Program>,
+}
 
-// /*
-// 1. After building the harness code, have a way to list all functions that were built.
-// 2.
-// */
-// impl Arbiter {
-//     pub(crate) fn new() -> Result<Self> {
-//         let code_path = env!("HARNESS_WASM_PATH");
+impl Arbiter {
+    fn new() -> Self {
+        // get_harness_schema!();
+        todo!()
+    }
+}
 
-//         Self { harness_code }
-//     }
+thread_local! {
+    static Devices: RefCell<Vec<Device>> = RefCell::new(Vec::new());
+}
 
-//     pub fn harness_code(&self) -> Vec<u8> {
-//         todo!()
-//     }
-// }
+#[query]
+fn http_request(req: Request) -> HttpResponse {
+    let method = Method::try_from(req.method.as_str()).unwrap(); //todo
+
+    match (method, req.path.as_str()) {
+        (Method::GET, "/program") => {
+            // register the device with the arbiter
+            match get_header(&Header::HarnessNodeUrl.to_string(), &req.headers) {
+                Some(url) => {
+                    Devices.with(|devices| {
+                        devices.borrow_mut().push(Device {
+                            id: ic_cdk::api::caller(),
+                            url,
+                            programs: vec!["todo!"
+                                .parse()
+                                .expect("todo: should be in the format of a program id")],
+                        })
+                    });
+
+                    return HttpResponse {
+                        status: Nat::from(200u16),
+                        headers: vec![],
+                        body: HARNESS_WASM.to_vec(),
+                    };
+                }
+                None => {
+                    todo!()
+                }
+            }
+        }
+
+        (_, path) => {
+            return HttpResponse {
+                status: Nat::from(404u16),
+                headers: Vec::new(),
+                body: path.as_bytes().to_vec(),
+            };
+        }
+    }
+}
