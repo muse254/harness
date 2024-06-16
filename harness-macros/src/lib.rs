@@ -3,8 +3,10 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use std::sync::Mutex;
+use std::{io::BufReader, sync::Mutex};
 use syn::{Error, ItemFn, Signature, Type};
+
+use harness_primitives::internals::{IntermediateSchema, IntermediateService, Schema, Service};
 
 mod bootstrap;
 
@@ -232,5 +234,48 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
             _ => vec![ty.as_ref().clone()],
         },
     };
+
     Ok((args, rets))
+}
+
+/// This macro is responsible for populating the harness schema to be referenced in our canister.
+#[cfg(not(feature = "__harness-build"))]
+#[proc_macro]
+pub fn get_harness_schema(_: TokenStream) -> TokenStream {
+    // HARNESS_SCHEMA is populated on build time
+    let schema: Schema = serde_json::from_reader(BufReader::new(
+        std::fs::File::open(
+            std::env::var("HARNESS_SCHEMA")
+                .expect("HARNESS_SCHEMA is populated on build time with `__harness-build` feature"),
+        )
+        .expect("schema file not found"),
+    ))
+    .expect("schema file is not valid json");
+
+    let inter_schema = IntermediateSchema::from(schema);
+
+    let version = inter_schema.version;
+    let name = inter_schema.program;
+    let mut services = Vec::new();
+    for service in inter_schema.services {
+        let name = service.name;
+        let args = service.args;
+        let rets = service.rets;
+
+        services.push(quote! {
+            Service {
+                name: #name,
+                args: vec![#(#args),*],
+                rets: #rets,
+            }
+        });
+    }
+
+    TokenStream::from(quote! {
+        Schema {
+            name: #name,
+            version: #version,
+            services: vec![#(#services),*],
+        }
+    })
 }

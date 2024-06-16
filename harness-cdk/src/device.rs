@@ -4,6 +4,7 @@
 use std::borrow::Cow;
 
 use candid::{CandidType, Decode, Deserialize, Encode, Principal};
+use harness_primitives::ProgramId;
 use ic_stable_structures::{storable::Bound, Storable};
 use serde::Serialize;
 
@@ -15,7 +16,7 @@ pub(crate) struct Device {
     /// The URL of the device
     pub url: String,
     /// The programs that have been loaded to the device
-    pub programs: Vec<String>,
+    pub programs: Vec<ProgramId>,
 }
 
 impl Storable for Device {

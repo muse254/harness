@@ -29,9 +29,22 @@ pub struct Response<T: AsyncRead + Unpin> {
     pub data: T,
 }
 
-impl<T: AsyncRead + Unpin> From<error::Error> for Response<T> {
+impl From<error::Error> for Response<Cursor<Vec<u8>>> {
     fn from(value: error::Error) -> Self {
-        todo!()
+        let status_code = match &value {
+            Error::IO { .. } => 400,
+            Error::Internal { .. } | Error::Custom(_) => 500,
+        };
+
+        let val_str = value.to_string();
+        Self {
+            status_code: status_code as u16,
+            headers: vec![HeaderField(
+                "Content-Type".to_string(),
+                "text/plain".to_string(),
+            )],
+            data: Cursor::new(val_str.as_bytes().to_vec().into()),
+        }
     }
 }
 

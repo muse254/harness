@@ -1,3 +1,4 @@
+//! Error handling primitives for the harness project.
 use thiserror::Error;
 use wapc::errors::Error as WapcError;
 use wasmtime_provider::errors::Error as WasmtimeError;

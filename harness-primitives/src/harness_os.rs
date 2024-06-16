@@ -1,6 +1,8 @@
+//! The Harness OS is the system that manages harness programs on the device. It is responsible for loading, unloading, and executing programs.
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use candid::CandidType;
 use wapc::WapcHost;
 
 use crate::error::{Error, Result};
@@ -77,7 +79,18 @@ impl HarnessOs {
 
 /// The program identifier. It should be a human-readable identifier on the Harness network.
 /// TODO: parse? `<network>.<account_id>.<program_name>`
-#[derive(Eq, Ord, Hash, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(
+    Eq,
+    Ord,
+    Hash,
+    Clone,
+    Debug,
+    PartialEq,
+    PartialOrd,
+    CandidType,
+    candid::Deserialize,
+    serde::Serialize,
+)]
 pub struct ProgramId(Box<str>);
 
 impl TryFrom<String> for ProgramId {
