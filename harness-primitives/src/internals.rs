@@ -5,11 +5,21 @@ use proc_macro2::TokenStream;
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
 /// Ok to access once it's present in the [`Program`](crate::Program) struct.
-#[derive(serde::Deserialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Schema {
-    pub version: String,
-    pub program: String,
+    pub version: Option<String>,
+    pub program: Option<String>,
     pub services: Vec<Service>,
+}
+
+impl Schema {
+    pub fn new() -> Self {
+        Self {
+            version: std::env::var("CARGO_PKG_VERSION").ok(),
+            program: std::env::var("CARGO_PKG_NAME").ok(),
+            services: vec![],
+        }
+    }
 }
 
 /// This is the intermediate schema that is used to generate the code for the harness program. It
@@ -17,8 +27,8 @@ pub struct Schema {
 /// when generating code.
 #[derive(Clone)]
 pub struct IntermediateSchema {
-    pub version: String,
-    pub program: String,
+    pub version: Option<String>,
+    pub program: Option<String>,
     pub services: Vec<IntermediateService>,
 }
 
@@ -40,7 +50,7 @@ impl From<Schema> for IntermediateSchema {
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
 /// Ok to access once it's present in the [`Program`](crate::Program) struct.
-#[derive(serde::Deserialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Service {
     pub name: String,
     pub args: Vec<String>,

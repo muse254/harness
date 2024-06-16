@@ -1,4 +1,3 @@
-use reqwest;
 use tokio::io::BufStream;
 
 use harness_primitives::http::parse_request;

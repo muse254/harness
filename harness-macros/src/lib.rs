@@ -3,10 +3,13 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
+
 use std::{io::BufReader, sync::Mutex};
 use syn::{Error, ItemFn, Signature, Type};
 
-use harness_primitives::internals::{IntermediateSchema, IntermediateService, Schema, Service};
+use harness_primitives::internals::{IntermediateSchema, Schema, Service};
+
+//use harness_primitives::schema::{Method, Schema};
 
 mod bootstrap;
 
@@ -19,7 +22,9 @@ type FnMap = Vec<(String, String)>;
 
 // FIXME https://github.com/rust-lang/rust/issues/44034
 lazy_static::lazy_static! {
-    static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> = Mutex::new(Some(Vec::new()));
+    static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> =
+    Mutex::new(Some(Vec::new()));
+    static ref HARNESS_SCHEMA: Mutex<Schema> = Mutex::new(Schema::new());
 }
 
 /// This macro is responsible for generating `harness` compatible implementations.
@@ -137,6 +142,16 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         })
         .collect::<Vec<_>>();
 
+    let schema = HARNESS_SCHEMA.lock().unwrap().clone();
+    if let Err(err) = std::fs::write(
+        std::env::var("OUT_DIR").unwrap() + "/harness_schema.json",
+        serde_json::to_string(&schema).unwrap(),
+    ) {
+        return syn::Error::new(Span::call_site(), err)
+            .to_compile_error()
+            .into();
+    }
+
     TokenStream::from(quote! {
         #[no_mangle]
         pub fn wapc_init() {
@@ -211,6 +226,35 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
         ));
     }
 
+    if let Ok(mut schema) = HARNESS_SCHEMA.lock() {
+        let args = arg_types
+            .iter()
+            .map(|t| {
+                quote! {
+                    let mut env = ::candid::types::internal::TypeContainer::new();
+                    env.add::<#t>().to_string()
+                }
+                .to_string()
+            })
+            .collect();
+        let rets = ret_types
+            .iter()
+            .map(|t| {
+                quote! {
+                    let mut env = ::candid::types::internal::TypeContainer::new();
+                    env.add::<#t>().to_string()
+                }
+                .to_string()
+            })
+            .collect();
+
+        schema.services.push(Service {
+            name: base_name,
+            args,
+            rets,
+        });
+    }
+
     Ok(TokenStream::from(harness_impl))
 }
 
@@ -245,8 +289,9 @@ pub fn get_harness_schema(_: TokenStream) -> TokenStream {
     // HARNESS_SCHEMA is populated on build time
     let schema: Schema = serde_json::from_reader(BufReader::new(
         std::fs::File::open(
-            std::env::var("HARNESS_SCHEMA")
-                .expect("HARNESS_SCHEMA is populated on build time with `__harness-build` feature"),
+            std::env::var("OUT_DIR")
+                .expect("HARNESS_SCHEMA is populated on build time with `__harness-build` feature")
+                + "/harness_schema.json",
         )
         .expect("schema file not found"),
     ))
@@ -272,10 +317,10 @@ pub fn get_harness_schema(_: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        Schema {
+       let schema = Schema {
             name: #name,
             version: #version,
             services: vec![#(#services),*],
-        }
+        };
     })
 }

@@ -7,10 +7,8 @@ use crate::device::Device;
 
 use harness_macros::get_harness_schema;
 use harness_primitives::{
-    http::{get_header, Header, HeaderField, Method, Request},
-    internals::Schema,
+    http::{get_header, Header, Method, Request},
     program::Program,
-    ProgramId,
 };
 
 // FIXME: placeholder
@@ -24,7 +22,7 @@ pub(crate) struct Arbiter {
 
 impl Arbiter {
     fn new() -> Self {
-        // let schema = get_harness_schema!();
+        // get_harness_schema!();
         todo!()
     }
 }
