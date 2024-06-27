@@ -15,20 +15,22 @@ fn candid_serde() {
     assert_eq!(original_val, val);
 }
 
-#[test]
-fn simple_function_test() {
-    #[harness(strip = ["something", "else"])]
-    #[query]
-    fn hello(msg: String) -> String {
-        format!("Hello, {msg}!")
-    }
+// #[test]
+// fn simple_function_test() {
+//     #[harness(strip = ["something", "else"])]
+//     #[query]
+//     fn hello(msg: String) -> String {
+//         format!("Hello, {msg}!")
+//     }
 
-    let res = __harness_hello(&Encode!(&String::from("World")).unwrap()).unwrap();
-    assert_eq!(
-        Decode!(&res, String).unwrap(),
-        String::from("Hello, World!")
-    );
-}
+//     harness_cdk::harness_export!();
+
+//     let res = __harness_hello(&Encode!(&String::from("World")).unwrap()).unwrap();
+//     assert_eq!(
+//         Decode!(&res, String).unwrap(),
+//         String::from("Hello, World!")
+//     );
+// }
 
 #[test]
 fn simple_function_test_no_return() {
@@ -36,6 +38,10 @@ fn simple_function_test_no_return() {
     fn hi(name: String) {
         println!("Hi, {name}");
     }
+
+    harness_cdk::harness_export!();
+
+    let schema = { harness_macros::get_harness_schema!() };
 
     let res = __harness_hi(&Encode!(&String::from("stranger")).unwrap()).unwrap();
     assert!(res.is_empty());

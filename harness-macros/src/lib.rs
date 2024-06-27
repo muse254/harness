@@ -7,7 +7,10 @@ use quote::{quote, ToTokens};
 use std::{io::BufReader, sync::Mutex};
 use syn::{Error, ItemFn, Signature, Type};
 
-use harness_primitives::internals::{IntermediateSchema, Schema, Service};
+use harness_primitives::{
+    get_harness_path,
+    internals::{IntermediateSchema, Schema, Service},
+};
 
 //use harness_primitives::schema::{Method, Schema};
 
@@ -143,8 +146,17 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let schema = HARNESS_SCHEMA.lock().unwrap().clone();
+    let path = match get_harness_path() {
+        Ok(path) => path,
+        Err(e) => {
+            return syn::Error::new(Span::call_site(), e)
+                .to_compile_error()
+                .into();
+        }
+    };
+
     if let Err(err) = std::fs::write(
-        std::env::var("OUT_DIR").unwrap() + "/harness_schema.json",
+        path + "/harness_schema.json",
         serde_json::to_string(&schema).unwrap(),
     ) {
         return syn::Error::new(Span::call_site(), err)
@@ -283,19 +295,35 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
 }
 
 /// This macro is responsible for populating the harness schema to be referenced in our canister.
-#[cfg(not(feature = "__harness-build"))]
 #[proc_macro]
 pub fn get_harness_schema(_: TokenStream) -> TokenStream {
+    let path = match get_harness_path() {
+        Ok(path) => path,
+        Err(e) => {
+            return syn::Error::new(Span::call_site(), e)
+                .to_compile_error()
+                .into();
+        }
+    };
+
+    let schema_file = match std::fs::File::open(path + "/harness_schema.json") {
+        Ok(val) => val,
+        Err(err) => {
+            if cfg!(feature = "__harness-build") {
+                return syn::Error::new(Span::call_site(), "schema file not found, please call after the first build with `--features __harness-build`")
+                    .to_compile_error()
+                    .into();
+            }
+
+            return syn::Error::new(Span::call_site(), format!("schema file not found: {}", err))
+                .to_compile_error()
+                .into();
+        }
+    };
+
     // HARNESS_SCHEMA is populated on build time
-    let schema: Schema = serde_json::from_reader(BufReader::new(
-        std::fs::File::open(
-            std::env::var("OUT_DIR")
-                .expect("HARNESS_SCHEMA is populated on build time with `__harness-build` feature")
-                + "/harness_schema.json",
-        )
-        .expect("schema file not found"),
-    ))
-    .expect("schema file is not valid json");
+    let schema: Schema = serde_json::from_reader(BufReader::new(schema_file))
+        .expect("schema file is not valid json");
 
     let inter_schema = IntermediateSchema::from(schema);
 
@@ -317,10 +345,10 @@ pub fn get_harness_schema(_: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-       let schema = Schema {
+        Schema {
             name: #name,
             version: #version,
             services: vec![#(#services),*],
-        };
+        }
     })
 }

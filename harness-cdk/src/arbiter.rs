@@ -5,7 +5,8 @@ use ic_cdk::{api::management_canister::http_request::HttpResponse, query};
 
 use crate::device::Device;
 
-use harness_macros::get_harness_schema;
+//use harness_macros::get_harness_schema;
+
 use harness_primitives::{
     http::{get_header, Header, Method, Request},
     program::Program,
@@ -22,13 +23,13 @@ pub(crate) struct Arbiter {
 
 impl Arbiter {
     fn new() -> Self {
-        // get_harness_schema!();
+        // let schema = { get_harness_schema!() };
         todo!()
     }
 }
 
 thread_local! {
-    static Devices: RefCell<Vec<Device>> = RefCell::new(Vec::new());
+    static DEVICES: RefCell<Vec<Device>> = RefCell::new(Vec::new());
 }
 
 #[query]
@@ -40,7 +41,7 @@ fn http_request(req: Request) -> HttpResponse {
             // register the device with the arbiter
             match get_header(&Header::HarnessNodeUrl.to_string(), &req.headers) {
                 Some(url) => {
-                    Devices.with(|devices| {
+                    DEVICES.with(|devices| {
                         devices.borrow_mut().push(Device {
                             id: ic_cdk::api::caller(),
                             url,
