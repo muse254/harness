@@ -1,8 +1,14 @@
 # harness
+<div align="center">
+	<img width="256" src="assets/magneto-bw.svg" alt="Harness logo">
 
-This project creates a system that allows a project to use decentralized devices as it's cloud. This is possible with the use of an internet computer as the load balancer and proxy.
+# Harness
+</div>
 
-> Work in progress
+This framework allows for an IC canister to be piggybacked on IoT devices for:
+
+- additional compute off-chain where reasonable or just
+- to provide a bridge between the IoT device and the IC.
 
 ## TODO
 - [ ] Node implementations
