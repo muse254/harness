@@ -17,6 +17,7 @@ wapc = "1.1.0"
 wasmtime-provider = "1.16.0"
 candid_parser = "0.1.4"
 candid = "0.10.8"
+const_format = "0.2.32"
 
 [features]
 unstable = []

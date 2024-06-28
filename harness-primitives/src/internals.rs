@@ -1,10 +1,10 @@
-//! This module contains the internal data structures used by the harness sdk.
+//! This module contains the internal data structures used by the harness sdk, and are not intended to be used directly by the crate consumer.
 use proc_macro2::TokenStream;
 
 /// This is the schema for a harness program, it is not intended to be used directly by the crate
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
-/// Ok to access once it's present in the [`Program`](crate::Program) struct.
+/// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Schema {
     pub version: Option<String>,
@@ -49,7 +49,7 @@ impl From<Schema> for IntermediateSchema {
 /// This is the schema for a harness service, it is not intended to be used directly by the crate
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
-/// Ok to access once it's present in the [`Program`](crate::Program) struct.
+/// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Service {
     pub name: String,

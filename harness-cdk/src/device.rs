@@ -4,7 +4,7 @@
 use std::borrow::Cow;
 
 use candid::{CandidType, Decode, Deserialize, Encode, Principal};
-use harness_primitives::ProgramId;
+use harness_primitives::program::ProgramId;
 use ic_stable_structures::{storable::Bound, Storable};
 use serde::Serialize;
 
