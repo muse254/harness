@@ -39,6 +39,12 @@ fn simple_function_test_no_return() {
         println!("Hi, {name}");
     }
 
+    #[harness]
+    fn hello(name: String) -> String {
+        println!("Hello, {name}");
+        return String::new();
+    }
+
     harness_cdk::harness_export!();
 
     let schema = { harness_macros::get_harness_schema!() };

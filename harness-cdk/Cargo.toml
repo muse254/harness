@@ -10,6 +10,10 @@ name = "compilation_tests"
 path = "compilation_tests/all.rs"
 required-features = ["harness-macros/__harness-build"]
 
+[[test]]
+name = "embed_program"
+path = "macro_tests/embed_program.rs"
+
 [dependencies]
 thiserror = "1.0"
 anyhow = "1.0.81"

@@ -1,11 +1,10 @@
 //! The Harness OS is the system that manages harness programs on the device. It is responsible for loading, unloading, and executing programs.
 use std::collections::HashMap;
-use std::str::FromStr;
 
-use candid::CandidType;
 use wapc::WapcHost;
 
 use crate::error::{Error, Result};
+use crate::program::ProgramId;
 
 /// Holds all the harness programs that have been loaded to the device.
 ///
@@ -74,37 +73,5 @@ impl HarnessOs {
     /// Removes a program from the set, noop if not found.
     pub fn remove_program(&mut self, program_id: &ProgramId) {
         let _ = self.0.remove(program_id);
-    }
-}
-
-/// The program identifier. It should be a human-readable identifier on the Harness network.
-/// TODO: parse? `<network>.<account_id>.<program_name>`
-#[derive(
-    Eq,
-    Ord,
-    Hash,
-    Clone,
-    Debug,
-    PartialEq,
-    PartialOrd,
-    CandidType,
-    candid::Deserialize,
-    serde::Serialize,
-)]
-pub struct ProgramId(Box<str>);
-
-impl TryFrom<String> for ProgramId {
-    type Error = Error;
-
-    fn try_from(program_id: String) -> std::result::Result<Self, Self::Error> {
-        Ok(Self(program_id.into_boxed_str()))
-    }
-}
-
-impl FromStr for ProgramId {
-    type Err = Error;
-
-    fn from_str(program_id: &str) -> std::result::Result<Self, Self::Err> {
-        Ok(Self(program_id.into()))
     }
 }

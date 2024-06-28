@@ -5,32 +5,34 @@ pub mod http;
 pub mod internals;
 pub mod program;
 
-pub use harness_os::{HarnessOs, ProgramId};
+pub use harness_os::HarnessOs;
+
+// todo: abstract the `HARNESS_PATH` and builds gen dir to be more configurable
 
 /// Way easier to have a static path in our system that holds all files
 /// that we need to run the harness system instead of having to pass env variable for this.
-pub fn get_harness_path() -> error::Result<String> {
-    let path = {
-        if cfg!(unix) {
-            // `~/.config/MyApp` for unix systems
-            format!("{}/.config/harness", std::env::var("HOME").unwrap())
-        } else if cfg!(windows) {
-            // `%USERPROFILE%\AppData\Local\MyApp\` for windows
-            format!(
-                "{}\\AppData\\Local\\harness",
-                std::env::var("USERPROFILE").unwrap()
-            )
-        } else {
-            return Err(error::Error::internal::<anyhow::Error>(
-                "Unsupported OS. Please open an issue on the repo to add support for this OS",
-                None,
-            ));
-        }
-    };
+#[cfg(target_os = "windows")]
+pub const HARNESS_PATH: &str =
+    const_format::concatcp!(std::env!("USERPROFILE"), "\\AppData\\Local\\harness");
 
-    if !std::path::Path::new(&path).exists() {
-        std::fs::create_dir_all(&path).unwrap();
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub const HARNESS_PATH: &str = const_format::concatcp!(std::env!("HOME"), "/.config/harness");
+
+pub fn ensure_path_created<'a>() -> error::Result<&'a str> {
+    if !cfg!(any(
+        target_os = "linux",
+        target_os = "macos",
+        target_os = "windows"
+    )) {
+        return Err(error::Error::internal::<anyhow::Error>(
+            "Unsupported OS. Please open an issue on the repo to add support for this OS",
+            None,
+        ));
     }
 
-    Ok(path)
+    if !std::path::Path::new(HARNESS_PATH).exists() {
+        std::fs::create_dir_all(HARNESS_PATH).unwrap();
+    }
+
+    Ok(HARNESS_PATH)
 }

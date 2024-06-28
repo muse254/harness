@@ -1,3 +1,5 @@
+#![cfg(feature = "__harness-build")]
+
 #[rustversion::stable]
 #[test]
 fn compilation_tests() {

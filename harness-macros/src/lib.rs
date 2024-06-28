@@ -1,18 +1,16 @@
 //! This crate provides the `harness` and `harness_export` macros.
 
+use std::{io::prelude::*, io::BufReader, sync::Mutex};
+
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-
-use std::{io::BufReader, sync::Mutex};
 use syn::{Error, ItemFn, Signature, Type};
 
 use harness_primitives::{
-    get_harness_path,
+    ensure_path_created,
     internals::{IntermediateSchema, Schema, Service},
 };
-
-//use harness_primitives::schema::{Method, Schema};
 
 mod bootstrap;
 
@@ -146,8 +144,8 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let schema = HARNESS_SCHEMA.lock().unwrap().clone();
-    let path = match get_harness_path() {
-        Ok(path) => path,
+    let path = match ensure_path_created() {
+        Ok(path) => path.to_string(),
         Err(e) => {
             return syn::Error::new(Span::call_site(), e)
                 .to_compile_error()
@@ -155,6 +153,7 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         }
     };
 
+    // fixme: this assumes that at any one time, there is only one harness program being built, disambiguate for different programs
     if let Err(err) = std::fs::write(
         path + "/harness_schema.json",
         serde_json::to_string(&schema).unwrap(),
@@ -239,27 +238,8 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
     }
 
     if let Ok(mut schema) = HARNESS_SCHEMA.lock() {
-        let args = arg_types
-            .iter()
-            .map(|t| {
-                quote! {
-                    let mut env = ::candid::types::internal::TypeContainer::new();
-                    env.add::<#t>().to_string()
-                }
-                .to_string()
-            })
-            .collect();
-        let rets = ret_types
-            .iter()
-            .map(|t| {
-                quote! {
-                    let mut env = ::candid::types::internal::TypeContainer::new();
-                    env.add::<#t>().to_string()
-                }
-                .to_string()
-            })
-            .collect();
-
+        let args = arg_types.iter().map(|t| quote!(#t).to_string()).collect();
+        let rets = ret_types.iter().map(|t| quote!(#t).to_string()).collect();
         schema.services.push(Service {
             name: base_name,
             args,
@@ -294,11 +274,12 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
     Ok((args, rets))
 }
 
-/// This macro is responsible for populating the harness schema to be referenced in our canister.
+/// This macro allows retrieval of the compiled harness program to memory at compile time.
 #[proc_macro]
-pub fn get_harness_schema(_: TokenStream) -> TokenStream {
-    let path = match get_harness_path() {
-        Ok(path) => path,
+pub fn get_program(_item: TokenStream) -> TokenStream {
+    // get harness program compiled code
+    let harness_path = match ensure_path_created() {
+        Ok(path) => std::path::Path::new(path),
         Err(e) => {
             return syn::Error::new(Span::call_site(), e)
                 .to_compile_error()
@@ -306,7 +287,73 @@ pub fn get_harness_schema(_: TokenStream) -> TokenStream {
         }
     };
 
-    let schema_file = match std::fs::File::open(path + "/harness_schema.json") {
+    // fixme: assumption that the generated wasm file is at `{HARNESS_PATH}/harness_code.wasm`
+    let wasm_file_path = harness_path
+        .join("harness_code.wasm")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    // only doing fs reads at compile time
+    let mut f = match std::fs::File::open(&wasm_file_path) {
+        Ok(val) => val,
+        Err(err) => {
+            if cfg!(feature = "__harness-build") {
+                return syn::Error::new(Span::call_site(), "wasm file not found, please call after the first build with `--features __harness-build`")
+                    .to_compile_error()
+                    .into();
+            }
+
+            return syn::Error::new(Span::call_site(), format!("wasm file not found: {}", err))
+                .to_compile_error()
+                .into();
+        }
+    };
+
+    let mut buffer = Vec::new();
+    f.read_to_end(&mut buffer)
+        .expect("file read to succeed; qed");
+
+    // fixme: how reliable is metadata for exact file size?
+    let bytes = match std::fs::metadata(&wasm_file_path) {
+        Ok(val) => val.len() as usize,
+        Err(e) => {
+            return syn::Error::new(Span::call_site(), e)
+                .to_compile_error()
+                .into();
+        }
+    };
+
+    let schema = get_schema(&harness_path);
+    TokenStream::from(quote! {
+       {
+        let mut buff = std::io::Cursor::new(vec![0u8; #bytes]);
+        buff.read_exact(&mut vec![#(#buffer),*]).expect("buffer read to succeed; qed");
+
+        // were sure about the size of the buffer
+        let wasm = unsafe {
+            &*(buff.into_inner().as_slice().as_ptr() as *const [u8; #bytes])
+        };
+
+        ::harness_primitives::program::Program {
+            id: #schema.program.expect("program value expected").parse().unwrap(), // fixme: allow
+            schema: #schema,
+            wasm,
+        }
+       }
+    })
+}
+
+/// Allows us to retrieve the schema generated for the harness program.
+fn get_schema(harness_path: &std::path::Path) -> proc_macro2::TokenStream {
+    // fixme: assumption that the schema file is at `{HARNESS_PATH}/harness_schema.json`
+    let schema_file_path = harness_path
+        .join("harness_schema.json")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let schema_file = match std::fs::File::open(&schema_file_path) {
         Ok(val) => val,
         Err(err) => {
             if cfg!(feature = "__harness-build") {
@@ -321,34 +368,70 @@ pub fn get_harness_schema(_: TokenStream) -> TokenStream {
         }
     };
 
-    // HARNESS_SCHEMA is populated on build time
     let schema: Schema = serde_json::from_reader(BufReader::new(schema_file))
         .expect("schema file is not valid json");
 
     let inter_schema = IntermediateSchema::from(schema);
 
-    let version = inter_schema.version;
-    let name = inter_schema.program;
     let mut services = Vec::new();
-    for service in inter_schema.services {
-        let name = service.name;
-        let args = service.args;
-        let rets = service.rets;
+    for mut service in inter_schema.services {
+        service.args.iter_mut().for_each(|arg| {
+            to_candid_type(arg);
+        });
+        to_candid_type(&mut service.rets);
 
+        let name = service.name;
+        let rets = service.rets;
+        let args = service.args;
         services.push(quote! {
-            Service {
-                name: #name,
+            ::harness_primitives::internals::Service {
+                name: String::from(#name),
                 args: vec![#(#args),*],
                 rets: #rets,
             }
         });
     }
 
-    TokenStream::from(quote! {
-        Schema {
-            name: #name,
+    let version = {
+        if let Some(val) = inter_schema.version {
+            quote!(Some(String::from(#val)))
+        } else {
+            quote!(None)
+        }
+    };
+
+    let program = {
+        if let Some(val) = inter_schema.program {
+            quote!(Some(String::from(#val)))
+        } else {
+            quote!(None)
+        }
+    };
+
+    quote! {
+        ::harness_primitives::internals::Schema {
+            program: #program,
             version: #version,
             services: vec![#(#services),*],
         }
-    })
+    }
+}
+
+fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
+    match ty.is_empty() {
+        true => {
+            *ty = quote! {
+                ::candid::types::internal::TypeContainer::new().add::<()>().to_string()
+            }
+        }
+        false => {
+            *ty = {
+                // parse ty as a syn::Type
+                let _ty = syn::parse2::<Type>(ty.clone()).expect("failed to parse type");
+                quote! {
+                    ::candid::types::internal::TypeContainer::new().add::<#ty>().to_string()
+                }
+            }
+        }
+    }
 }
