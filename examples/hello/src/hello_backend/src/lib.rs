@@ -1,5 +1,4 @@
-use harness_cdk::{harness, harness_export, Decode, Encode};
-use ic_cdk::query;
+use harness_cdk::prelude::*;
 
 #[harness]
 #[query]

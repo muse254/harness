@@ -15,7 +15,7 @@ use harness_primitives::{
     program::Program,
 };
 
-pub(crate) struct Arbiter {
+pub struct Arbiter {
     devices: Vec<Device>,
     program: Program,
 }
@@ -34,10 +34,6 @@ impl Arbiter {
     pub(crate) fn add_device(&mut self, device: Device) {
         self.devices.push(device);
     }
-}
-
-thread_local! {
-    static DEVICES: RefCell<Vec<Device>> = RefCell::new(Vec::new());
 }
 
 #[query]
