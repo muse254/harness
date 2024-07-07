@@ -40,3 +40,23 @@ impl FromStr for ProgramId {
         Ok(Self(program_id.into()))
     }
 }
+
+impl Into<String> for ProgramId {
+    fn into(self) -> String {
+        self.0.into()
+    }
+}
+
+#[test]
+fn program_id_compatible_with_string() {
+    use crate::program::ProgramId;
+    use std::str::FromStr as _;
+
+    // Parsing program id from str
+    assert!("Using parse".parse::<ProgramId>().is_ok());
+    assert!(ProgramId::from_str("Using from_str").is_ok());
+
+    // Parsing str from program id
+    let program_id = "Parsing str".parse::<ProgramId>().unwrap();
+    let _: String = program_id.into();
+}

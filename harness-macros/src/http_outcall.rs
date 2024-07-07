@@ -26,13 +26,15 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
     };
 
     Ok(TokenStream::from(quote! {
+        use harness_cdk::{ic_cdk, candid, harness_primitives, serde_json};
+
         #[ic_cdk::update]
         async fn #ident(#inputs) #output {
-            let device_url = ARBITER.with(|arbiter| arbiter.borrow().get_next_device());
-            let program_id = ARBITER.with(|arbiter| arbiter.borrow().get_program_id()).to_string();
+            let device_url = ::arbiter::get_next_device(&NEXT_DEVICE_ID, &ARBITER);
+            let program_id: String = ARBITER.with(|arbiter| arbiter.borrow().get_program_id()).into();
 
             // TODO: research and tweak the context for maximal cost efficiency
-            let context = Context {
+            let context = ::harness_primitives::http::Context {
                 bucket_start_time_index: 0,
                 closing_price_index: 4,
             };
@@ -40,9 +42,9 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
             let body = Some(harness_cdk::Encode!(#inputs).expect("the data types should impl CandidType"));
 
             let request = CanisterHttpRequestArgument {
-                url: url.to_string() + "/procedure",
+                url: device_url.to_string() + "/procedure",
                 max_response_bytes: None,
-                method: HttpMethod::GET,
+                method: HttpMethod::POST,
                 headers: vec![
                     HttpHeader {
                         name: harness_primitives::http::Header::ProgramId.to_string(),
@@ -66,7 +68,7 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
             match http_request(request, 10_000_000_000).await {
                 Ok((response,)) => {
                     // make sure the response is non-error status
-                    if response.status_code != Nat::from(200u8) {
+                    if response.status_code !=  candid::Nat::from(200u8) {
                         panic!("The http_request resulted into error. \nStatus code: {}\nBody: `{}`", response.status_code, response.body);
                     }
 

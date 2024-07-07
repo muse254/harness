@@ -435,6 +435,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "const_format"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a214c7af3d04997541b18d432afaff4c455e79e2029079647e72fc2bd27673"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7f6ff08fd20f4f299298a28e2dfa8a8ba1036e6cd2460ac1de7b425d76f2500"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -974,6 +994,7 @@ dependencies = [
  "ic-stable-structures",
  "rustversion",
  "serde",
+ "serde_json",
  "thiserror",
  "trybuild",
  "wapc-guest",
@@ -1003,6 +1024,7 @@ dependencies = [
  "harness-primitives",
  "reqwest",
  "tokio",
+ "url",
  "wapc",
  "wapc-codec",
  "wasmtime-provider",
@@ -1015,6 +1037,7 @@ dependencies = [
  "anyhow",
  "candid",
  "candid_parser",
+ "const_format",
  "proc-macro2",
  "quote",
  "serde",
@@ -1049,6 +1072,13 @@ name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
+
+[[package]]
+name = "hello"
+version = "0.1.0"
+dependencies = [
+ "harness-cdk",
+]
 
 [[package]]
 name = "hermit-abi"
@@ -2134,9 +2164,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.116"
+version = "1.0.120"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e17db7126d17feb94eb3fad46bf1a96b034e8aacbc2e775fe81505f8b0b2813"
+checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
 dependencies = [
  "itoa",
  "ryu",

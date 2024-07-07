@@ -14,4 +14,3 @@ To become part of the harness network, a device must run a harness node that uti
 ## Further Work
 
 - We can offer this technology in more languages being able to compile to WebAssembly.
-- 

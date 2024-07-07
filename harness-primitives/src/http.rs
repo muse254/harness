@@ -11,6 +11,12 @@ use tokio::io::{
 
 use crate::error::{self, Error, Result};
 
+// This struct is legacy code and is not really used in the code.
+#[derive(serde::Serialize, serde:: Deserialize)]
+pub struct Context {
+    pub bucket_start_time_index: usize,
+    pub closing_price_index: usize,
+}
 #[derive(CandidType, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct HeaderField(pub String, pub String);
 
@@ -106,7 +112,7 @@ pub enum Header {
     /// The procedure to call into
     ProgramProc,
     /// The URL of the harness node
-    HarnessNodeUrl,
+    DeviceUrl,
 }
 
 impl Display for Header {
@@ -114,7 +120,7 @@ impl Display for Header {
         match self {
             Header::ProgramId => write!(f, "Program-Identifier"),
             Header::ProgramProc => write!(f, "Program-Procedure"),
-            Header::HarnessNodeUrl => write!(f, "Harness-Node-Url"),
+            Header::DeviceUrl => write!(f, "Device-Url"),
         }
     }
 }

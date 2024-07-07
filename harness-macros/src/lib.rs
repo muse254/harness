@@ -107,14 +107,39 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         return TokenStream::from(quote! {
             use std::cell::{RefCell, Cell};
 
-            use ic_cdk::api::management_canister::http_request::{
-                http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse,
-                TransformArgs, TransformContext,
+            use harness_cdk::{
+                ic_cdk::{
+                    self,
+                    api::management_canister::http_request::{
+                        http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse,
+                        TransformArgs, TransformContext,
+                    }
+                }
             };
 
             thread_local! {
                 static NEXT_DEVICE_ID: Cell<u64> = Cell::new(0); // rudimentary round robin scheduling
-                static Arbiter: RefCell<harness_cdk::Arbiter> = RefCell::new(Arbiter::new().unwrap());
+                static ARBITER: RefCell<harness_cdk::arbiter::Arbiter> = RefCell::new(harness_cdk::arbiter::Arbiter::new().unwrap());
+            }
+
+            /// There is no security done here, research to be done on how to prevent bad actors from registering devices
+            #[ic_cdk::update]
+            pub fn register_device(url: String) {
+                ARBITER.with(|arbiter| {
+                    arbiter.borrow_mut().add_device(url);
+                });
+            }
+
+            /// Allows the user to retrieve the program id and wasm code of the harness program loaded by the arbiter.
+            #[ic_cdk::query]
+            pub fn get_program_code() -> (String, &'static [u8]) {
+                ARBITER.with(|arbiter| {
+                    let arbiter = arbiter.borrow();
+                    (
+                        arbiter.get_program_id().into(),
+                        arbiter.get_program_code(),
+                    )
+                })
             }
         });
     }
@@ -214,6 +239,8 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
 
         let no_return = ret_types.is_empty();
         quote! {
+            use harness_cdk::candid;
+
             fn #harness_fn_name(payload: &[u8]) -> harness_cdk::CallResult {
                 #func
                 #decode_invocation
@@ -418,7 +445,7 @@ fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
     match ty.is_empty() {
         true => {
             *ty = quote! {
-                ::candid::types::internal::TypeContainer::new().add::<()>().to_string()
+                crate::candid_types::internal::TypeContainer::new().add::<()>().to_string()
             }
         }
         false => {
@@ -426,7 +453,7 @@ fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
                 // parse ty as a syn::Type
                 let _ty = syn::parse2::<Type>(ty.clone()).expect("failed to parse type");
                 quote! {
-                    ::candid::types::internal::TypeContainer::new().add::<#ty>().to_string()
+                    crate::candid::internal::TypeContainer::new().add::<#ty>().to_string()
                 }
             }
         }

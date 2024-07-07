@@ -1,6 +1,4 @@
 use std::io::prelude::*;
-
-use harness_macros::get_program;
 use harness_primitives::{program::Program, HARNESS_PATH};
 
 #[test]
@@ -13,8 +11,9 @@ fn test_embed_program() {
     }
 
     // should be able to compile the program to memory and populate the program struct
-    let program = get_program!();
+    let program = harness_macros::get_program!();
 
     // better testing and more dynamic paths for builds
-    assert!(!program.id.is_empty())
+    let id: String = program.id.into();
+    assert!(!id.is_empty());
 }

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "examples/hello",
     "harness-cdk",
     "harness-macros",
     "harness-node",

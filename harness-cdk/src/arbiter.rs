@@ -1,27 +1,23 @@
-#!(cfg(not(feature = "__harness-build")))
-
 //! This is is where the harness program is loaded at compile time, we create the arbiter to arbiter operations of the harness program.
-
-use std::cell::RefCell;
 use std::io::prelude::*;
 
-use candid::Nat;
-use ic_cdk::{api::management_canister::http_request::HttpResponse, query};
+use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpResponse, TransformArgs};
 
-use crate::device::Device;
-
+use harness_macros;
 use harness_primitives::{
-    http::{get_header, Header, Method, Request},
-    program::Program,
+    http,
+    program::{Program, ProgramId},
 };
 
 pub struct Arbiter {
-    devices: Vec<Device>,
+    // The collection of device urls that have been registered with the arbiter.
+    devices: Vec<String>,
+    // The harness program that is loaded into the arbiter at compile time.
     program: Program,
 }
 
 impl Arbiter {
-    pub(crate) fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self, String> {
         // read the harness code bytes to memory at compile time
         let program = harness_macros::get_program!();
 
@@ -31,48 +27,78 @@ impl Arbiter {
         })
     }
 
-    pub(crate) fn add_device(&mut self, device: Device) {
+    pub fn add_device(&mut self, device: String) {
         self.devices.push(device);
+    }
+
+    pub fn get_program_code(&self) -> &'static [u8] {
+        self.program.wasm
+    }
+
+    pub fn get_program_id(&self) -> ProgramId {
+        self.program.id.clone()
     }
 }
 
-#[query]
-fn http_request(req: Request) -> HttpResponse {
-    let method = Method::try_from(req.method.as_str()).unwrap(); //todo
-
-    match (method, req.path.as_str()) {
-        (Method::GET, "/program") => {
-            // register the device with the arbiter
-            match get_header(&Header::HarnessNodeUrl.to_string(), &req.headers) {
-                Some(url) => {
-                    DEVICES.with(|devices| {
-                        devices.borrow_mut().push(Device {
-                            id: ic_cdk::api::caller(),
-                            url,
-                            programs: vec!["todo!"
-                                .parse()
-                                .expect("todo: should be in the format of a program id")],
-                        })
-                    });
-
-                    return HttpResponse {
-                        status: Nat::from(200u16),
-                        headers: vec![],
-                        body: vec![], //HARNESS_WASM.to_vec(),
-                    };
-                }
-                None => {
-                    todo!()
-                }
-            }
-        }
-
-        (_, path) => {
-            return HttpResponse {
-                status: Nat::from(404u16),
-                headers: Vec::new(),
-                body: path.as_bytes().to_vec(),
-            };
-        }
+pub fn get_next_device(
+    counter: &std::cell::Cell<usize>,
+    arbiter: &std::cell::RefCell<Arbiter>,
+) -> String {
+    let n_device_val = counter.get();
+    if n_device_val < arbiter.borrow().devices.len() {
+        counter.set(n_device_val + 1);
+    } else {
+        counter.set(0);
     }
+
+    arbiter.borrow().devices[n_device_val].clone()
+}
+
+// Copied over from example `send_http_post_rust`
+// Strips all data that is not needed from the original response.
+#[ic_cdk::query]
+pub fn harness_transform(raw: TransformArgs) -> HttpResponse {
+    let headers = vec![
+        HttpHeader {
+            name: "Content-Security-Policy".to_string(),
+            value: "default-src 'self'".to_string(),
+        },
+        HttpHeader {
+            name: "Referrer-Policy".to_string(),
+            value: "strict-origin".to_string(),
+        },
+        HttpHeader {
+            name: "Permissions-Policy".to_string(),
+            value: "geolocation=(self)".to_string(),
+        },
+        HttpHeader {
+            name: "Strict-Transport-Security".to_string(),
+            value: "max-age=63072000".to_string(),
+        },
+        HttpHeader {
+            name: "X-Frame-Options".to_string(),
+            value: "DENY".to_string(),
+        },
+        HttpHeader {
+            name: "X-Content-Type-Options".to_string(),
+            value: "nosniff".to_string(),
+        },
+    ];
+
+    let mut res = HttpResponse {
+        status: raw.response.status.clone(),
+        body: raw.response.body.clone(),
+        headers,
+        ..Default::default()
+    };
+
+    if res.status == candid::Nat::from(200u8) {
+        res.body = raw.response.body;
+    } else {
+        ic_cdk::api::print(format!(
+            "Received an error from harness node: err = {:?}",
+            raw
+        ));
+    }
+    res
 }

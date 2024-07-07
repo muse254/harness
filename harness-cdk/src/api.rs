@@ -7,8 +7,8 @@ struct Request {}
 #[derive(candid::CandidType)]
 struct Response {}
 
-#[update]
-#[candid_method(update)]
-async fn register_device(_req: Request) -> Response {
-    todo!()
-}
+// #[update]
+// #[candid_method(update)]
+// async fn register_device(_req: Request) -> Response {
+//     todo!()
+// }

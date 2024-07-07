@@ -15,39 +15,23 @@ This framework allows for an IC canister to be piggybacked on IoT devices for:
 Let's create a sample hello world application.
 
 ```rust
-// we import the harness cdk prelude
-use harness_cdk::prelude::*;
+use harness_cdk::{harness_export, harness};
 
-// we store the arbiter in a thread local variable
-thread_local! {
-    static ARBITER: RefCell<Vec<Arbiter>> = RefCell::new(Vec::new());
-}
-
-// we define a service, important to annotate with the #[harness] attribute
-//
-// note that we can have only #[harness] attributes without using #[query] or #[update]
-// for services only needed by the harness network
+// we define a service, annotated with the #[harness] attribute
 #[harness]
-#[query]
 fn greet(name: String) -> String {
     format!("Hello, {}!", name)
 }
 
-// we can define another service, 
-
-
 harness_export!();
-
-
-
 ```
 
 ## TODO
 
 - [ ] Node implementations
-- [ ] CDK implementation
+- [x] CDK implementation
 - [x] Macros base implementation
-- [ ] Test examples
+- [x] Test examples
 - [ ] Running harness on chain
 
 ## Release notes

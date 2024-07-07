@@ -2,7 +2,7 @@
 
 use std::assert_eq;
 
-use harness_cdk::{harness, Decode, Encode};
+use harness_cdk::{candid::Decode, candid::Encode, harness};
 use ic_cdk::query;
 
 #[test]
