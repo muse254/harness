@@ -12,7 +12,7 @@ use harness_primitives::{
     internals::{IntermediateSchema, Schema, Service},
 };
 
-mod bootstrap;
+mod http_outcall;
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
 const RESERVED_METHODS: [&str; 1] = ["wapc_init"];
@@ -59,24 +59,11 @@ lazy_static::lazy_static! {
 pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
     match syn::parse::<syn::ItemFn>(item) {
         Ok(func) => {
-            if cfg!(not(feature = "__harness-build")) {
-                // todo: work here for the schema generation from the to upstream the schema to the `harness_cdk` @muse254
-
-                // if HARNESS_BUILD is provided, we can now bootstrap the Arbiter code
-                if bootstrap::HARNESS_BUILD.is_some() {
-                    // hide the function from the second build
-                    return TokenStream::from(quote!());
-                }
-
-                // here to allow error discovery
-                return TokenStream::from(func.to_token_stream());
-            }
-
             if func.sig.receiver().is_some() {
                 return TokenStream::from(
                     syn::Error::new(
                         Span::call_site(),
-                        "harness cannot be use on associated functions with `self` parameter",
+                        "harness cannot be used on associated functions with `self` parameter",
                     )
                     .to_compile_error(),
                 );
@@ -90,6 +77,12 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     )
                     .to_compile_error(),
                 );
+            }
+
+            if cfg!(not(feature = "__harness-build")) {
+                // create the http methods for the canister
+                return http_outcall::impl_http_outcall(func)
+                    .map_or_else(|e| e.to_compile_error().into(), Into::into);
             }
 
             create_harness_function(func).map_or_else(|e| e.to_compile_error().into(), Into::into)
@@ -110,17 +103,20 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn harness_export(input: TokenStream) -> TokenStream {
     if cfg!(not(feature = "__harness-build")) {
-        if bootstrap::HARNESS_BUILD.is_some() {
-            return bootstrap::harness_export_bootstrap()
-                .map_or_else(|e| e.to_compile_error().into(), Into::into);
-        }
+        // TODO: make sure this does not err out
+        return TokenStream::from(quote! {
+            use std::cell::{RefCell, Cell};
 
-        return syn::Error::new(
-            Span::call_site(),
-            "HARNESS_BUILD is not set, build with `--features __harness-build` and set HARNESS_BUILD to the wasm file path",
-        )
-        .to_compile_error()
-        .into();
+            use ic_cdk::api::management_canister::http_request::{
+                http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse,
+                TransformArgs, TransformContext,
+            };
+
+            thread_local! {
+                static NEXT_DEVICE_ID: Cell<u64> = Cell::new(0); // rudimentary round robin scheduling
+                static Arbiter: RefCell<harness_cdk::Arbiter> = RefCell::new(Arbiter::new().unwrap());
+            }
+        });
     }
 
     if !input.is_empty() {
@@ -330,7 +326,8 @@ pub fn get_program(_item: TokenStream) -> TokenStream {
         let mut buff = std::io::Cursor::new(vec![0u8; #bytes]);
         buff.read_exact(&mut vec![#(#buffer),*]).expect("buffer read to succeed; qed");
 
-        // were sure about the size of the buffer
+        // SAFETY: were sure about the size of the buffer, it's the wasm file generated from the first build.
+        // also ok if panics, happens at compile time
         let wasm = unsafe {
             &*(buff.into_inner().as_slice().as_ptr() as *const [u8; #bytes])
         };
