@@ -1,5 +1,4 @@
 //! This crate provides the `harness` and `harness_export` macros.
-
 use std::{io::prelude::*, io::BufReader, sync::Mutex};
 
 use proc_macro::TokenStream;
@@ -36,10 +35,10 @@ lazy_static::lazy_static! {
 /// To create a harness function, use the `harness` macro on a function and
 /// then call `harness_export` at the end of the file to register all harness functions.
 ///
-/// # Examples
+/// # Example
 ///
 /// ```
-/// use harness_macros::{harness, harness_export};
+/// use harness_cdk::prelude::*;
 ///
 /// #[harness]
 /// fn hello(msg: String) -> String {
@@ -48,11 +47,10 @@ lazy_static::lazy_static! {
 ///
 /// harness_export!();
 /// ```
-///
 /// We are building the application using a two-pass approach. Should refer to this [script](./) for more details.
 ///
 /// In the first pass, we are building the harness compatible code into a wasm binary file.
-/// In which case it is important to use the `--features __harness-build` flag.
+/// In which case it is important to use the `__harness-build` feature flag.
 ///
 /// In the second pass, our last pass, we are bundling the binary bytes into canister code with the relevant infrastructure.
 #[proc_macro_attribute]
@@ -107,13 +105,11 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         return TokenStream::from(quote! {
             use std::cell::{RefCell, Cell};
 
-            use harness_cdk::{
-                ic_cdk::{
-                    self,
-                    api::management_canister::http_request::{
-                        http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse,
-                        TransformArgs, TransformContext,
-                    }
+            use ::harness_cdk::ic_cdk::{
+                self,
+                api::management_canister::http_request::{
+                    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse,
+                    TransformArgs, TransformContext,
                 }
             };
 
@@ -233,22 +229,20 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
         } else {
             quote! {
                 // TODO: allow attributes to be passed to the DecoderConfig, or pick that up from ic_cdk?
-                let (#arg_vars) = harness_cdk::Decode!(&payload, #(#arg_types),*)?;
+                let (#arg_vars) = ::harness_cdk::Decode!(&payload, #(#arg_types),*)?;
             }
         };
 
         let no_return = ret_types.is_empty();
         quote! {
-            use harness_cdk::candid;
-
-            fn #harness_fn_name(payload: &[u8]) -> harness_cdk::CallResult {
+            fn #harness_fn_name(payload: &[u8]) -> ::harness_cdk::CallResult {
                 #func
                 #decode_invocation
                 if #no_return {
                     #fn_invocation;
                     return Ok(vec![]);
                 }
-                Ok(harness_cdk::Encode!(&#fn_invocation)?)
+                Ok(::harness_cdk::Encode!(&#fn_invocation)?)
             }
         }
     };
@@ -297,7 +291,9 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
     Ok((args, rets))
 }
 
-/// This macro allows retrieval of the compiled harness program to memory at compile time.
+/// This macro allows retrieval of the compiled harness program to memory at compile time. It looks into the `{HARNESS_PATH}/harness_code.wasm`
+/// file and reads the bytes into memory.
+/// For Windows, the build path is `%USERPROFILE%\AppData\Local\harness` and for Unix, it is `~/.config/harness`.
 #[proc_macro]
 pub fn get_program(_item: TokenStream) -> TokenStream {
     // get harness program compiled code
@@ -338,7 +334,7 @@ pub fn get_program(_item: TokenStream) -> TokenStream {
         .expect("file read to succeed; qed");
 
     // fixme: how reliable is metadata for exact file size?
-    let bytes = match std::fs::metadata(&wasm_file_path) {
+    let _bytes = match std::fs::metadata(&wasm_file_path) {
         Ok(val) => val.len() as usize,
         Err(e) => {
             return syn::Error::new(Span::call_site(), e)
@@ -350,19 +346,10 @@ pub fn get_program(_item: TokenStream) -> TokenStream {
     let schema = get_schema(&harness_path);
     TokenStream::from(quote! {
        {
-        let mut buff = std::io::Cursor::new(vec![0u8; #bytes]);
-        buff.read_exact(&mut vec![#(#buffer),*]).expect("buffer read to succeed; qed");
-
-        // SAFETY: were sure about the size of the buffer, it's the wasm file generated from the first build.
-        // also ok if panics, happens at compile time
-        let wasm = unsafe {
-            &*(buff.into_inner().as_slice().as_ptr() as *const [u8; #bytes])
-        };
-
         ::harness_primitives::program::Program {
             id: #schema.program.expect("program value expected").parse().unwrap(), // fixme: allow
             schema: #schema,
-            wasm,
+            wasm: &[#(#buffer),*],
         }
        }
     })
@@ -445,7 +432,7 @@ fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
     match ty.is_empty() {
         true => {
             *ty = quote! {
-                crate::candid_types::internal::TypeContainer::new().add::<()>().to_string()
+                ::candid::types::internal::TypeContainer::new().add::<()>().to_string()
             }
         }
         false => {
@@ -453,7 +440,7 @@ fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
                 // parse ty as a syn::Type
                 let _ty = syn::parse2::<Type>(ty.clone()).expect("failed to parse type");
                 quote! {
-                    crate::candid::internal::TypeContainer::new().add::<#ty>().to_string()
+                    ::candid::types::internal::TypeContainer::new().add::<#ty>().to_string()
                 }
             }
         }

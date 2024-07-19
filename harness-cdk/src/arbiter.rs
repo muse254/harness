@@ -1,13 +1,9 @@
 //! This is is where the harness program is loaded at compile time, we create the arbiter to arbiter operations of the harness program.
-use std::io::prelude::*;
 
+use candid::Nat;
 use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpResponse, TransformArgs};
 
-use harness_macros;
-use harness_primitives::{
-    http,
-    program::{Program, ProgramId},
-};
+use harness_primitives::program::{Program, ProgramId};
 
 pub struct Arbiter {
     // The collection of device urls that have been registered with the arbiter.
@@ -16,17 +12,17 @@ pub struct Arbiter {
     program: Program,
 }
 
+#[cfg(feature = "__harness-build")]
 impl Arbiter {
     pub fn new() -> Result<Self, String> {
-        // read the harness code bytes to memory at compile time
-        let program = harness_macros::get_program!();
-
         Ok(Self {
             devices: Vec::new(),
-            program,
+            program: crate::get_program!(),
         })
     }
+}
 
+impl Arbiter {
     pub fn add_device(&mut self, device: String) {
         self.devices.push(device);
     }
@@ -92,7 +88,7 @@ pub fn harness_transform(raw: TransformArgs) -> HttpResponse {
         ..Default::default()
     };
 
-    if res.status == candid::Nat::from(200u8) {
+    if res.status == Nat::from(200u8) {
         res.body = raw.response.body;
     } else {
         ic_cdk::api::print(format!(

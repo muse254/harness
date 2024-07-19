@@ -1,9 +1,10 @@
 use core::panic;
+use std::str::FromStr as _;
 
 use tokio::io::BufStream;
 use url::Url;
 
-use harness_primitives::{http::parse_request, HarnessOs};
+use harness_primitives::{http::parse_request, program::ProgramId, HarnessOs};
 
 mod network;
 use network::start_server;
@@ -29,7 +30,7 @@ async fn main() -> Result<(), anyhow::Error> {
     println!("connect on port '{port}'"); // todo: do telemetry properly
 
     let mut server = network::NodeServer {
-        harness_os: HarnessOs::new(ProgramId::from_str("res_from_query"), &wasm)?, // todo
+        harness_os: HarnessOs::new(ProgramId::from_str("res_from_query").expect(""), &wasm)?, // todo
     };
 
     loop {

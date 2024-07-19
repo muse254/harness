@@ -1,5 +1,5 @@
-use std::io::prelude::*;
 use harness_primitives::{program::Program, HARNESS_PATH};
+use std::io::prelude::*;
 
 #[test]
 fn test_embed_program() {

@@ -1,4 +1,4 @@
-use harness_cdk::{self, harness, harness_export};
+use harness_cdk::prelude::*;
 
 #[harness]
 fn hello(msg: String) -> String {
