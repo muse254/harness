@@ -988,6 +988,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "candid",
+ "harness-cdk",
  "harness-macros",
  "harness-primitives",
  "ic-cdk",
@@ -1005,6 +1006,7 @@ name = "harness-macros"
 version = "0.1.0"
 dependencies = [
  "candid",
+ "harness-cdk",
  "harness-primitives",
  "lazy_static",
  "proc-macro2",
@@ -1012,6 +1014,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn 2.0.52",
+ "wasm-bindgen",
 ]
 
 [[package]]

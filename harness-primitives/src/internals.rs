@@ -5,7 +5,7 @@ use proc_macro2::TokenStream;
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
 /// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct Schema {
     pub version: Option<String>,
     pub program: Option<String>,
@@ -50,7 +50,7 @@ impl From<Schema> for IntermediateSchema {
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
 /// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct Service {
     pub name: String,
     pub args: Vec<String>,
@@ -82,7 +82,7 @@ impl From<Service> for IntermediateService {
             rets: service
                 .rets
                 .parse()
-                .expect("Failed to parse return type as token stream"),
+                .expect("failed to parse return type as token stream"),
         }
     }
 }

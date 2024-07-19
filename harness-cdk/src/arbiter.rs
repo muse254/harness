@@ -15,6 +15,9 @@ pub struct Arbiter {
 #[cfg(feature = "__harness-build")]
 impl Arbiter {
     pub fn new() -> Result<Self, String> {
+        // making sure that the current schema is the same as the compiled program
+        // let schema = crate::get_schema!();
+
         Ok(Self {
             devices: Vec::new(),
             program: crate::get_program!(),

@@ -6,12 +6,10 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{Error, ItemFn, Signature, Type};
 
-use harness_primitives::{
-    ensure_path_created,
-    internals::{IntermediateSchema, Schema, Service},
-};
+use harness_primitives::internals::{IntermediateSchema, Schema, Service};
 
 mod http_outcall;
+mod retrieve_statics;
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
 const RESERVED_METHODS: [&str; 1] = ["wapc_init"];
@@ -162,7 +160,7 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
 
     let schema = HARNESS_SCHEMA.lock().unwrap().clone();
     let path = match ensure_path_created() {
-        Ok(path) => path.to_string(),
+        Ok(path) => path.join("harness_schema.json"),
         Err(e) => {
             return syn::Error::new(Span::call_site(), e)
                 .to_compile_error()
@@ -171,10 +169,7 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
     };
 
     // fixme: this assumes that at any one time, there is only one harness program being built, disambiguate for different programs
-    if let Err(err) = std::fs::write(
-        path + "/harness_schema.json",
-        serde_json::to_string(&schema).unwrap(),
-    ) {
+    if let Err(err) = std::fs::write(path, serde_json::to_string(&schema).unwrap()) {
         return syn::Error::new(Span::call_site(), err)
             .to_compile_error()
             .into();
@@ -291,141 +286,11 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
     Ok((args, rets))
 }
 
-/// This macro allows retrieval of the compiled harness program to memory at compile time. It looks into the `{HARNESS_PATH}/harness_code.wasm`
+/// This macro allows retrieval of the compiled harness program to memory at compile time. It looks into the `./harness_assets/harness_code.wasm`
 /// file and reads the bytes into memory.
-/// For Windows, the build path is `%USERPROFILE%\AppData\Local\harness` and for Unix, it is `~/.config/harness`.
 #[proc_macro]
 pub fn get_program(_item: TokenStream) -> TokenStream {
-    // get harness program compiled code
-    let harness_path = match ensure_path_created() {
-        Ok(path) => std::path::Path::new(path),
-        Err(e) => {
-            return syn::Error::new(Span::call_site(), e)
-                .to_compile_error()
-                .into();
-        }
-    };
-
-    // fixme: assumption that the generated wasm file is at `{HARNESS_PATH}/harness_code.wasm`
-    let wasm_file_path = harness_path
-        .join("harness_code.wasm")
-        .to_str()
-        .unwrap()
-        .to_string();
-
-    // only doing fs reads at compile time
-    let mut f = match std::fs::File::open(&wasm_file_path) {
-        Ok(val) => val,
-        Err(err) => {
-            if cfg!(feature = "__harness-build") {
-                return syn::Error::new(Span::call_site(), "wasm file not found, please call after the first build with `--features __harness-build`")
-                    .to_compile_error()
-                    .into();
-            }
-
-            return syn::Error::new(Span::call_site(), format!("wasm file not found: {}", err))
-                .to_compile_error()
-                .into();
-        }
-    };
-
-    let mut buffer = Vec::new();
-    f.read_to_end(&mut buffer)
-        .expect("file read to succeed; qed");
-
-    // fixme: how reliable is metadata for exact file size?
-    let _bytes = match std::fs::metadata(&wasm_file_path) {
-        Ok(val) => val.len() as usize,
-        Err(e) => {
-            return syn::Error::new(Span::call_site(), e)
-                .to_compile_error()
-                .into();
-        }
-    };
-
-    let schema = get_schema(&harness_path);
-    TokenStream::from(quote! {
-       {
-        ::harness_primitives::program::Program {
-            id: #schema.program.expect("program value expected").parse().unwrap(), // fixme: allow
-            schema: #schema,
-            wasm: &[#(#buffer),*],
-        }
-       }
-    })
-}
-
-/// Allows us to retrieve the schema generated for the harness program.
-fn get_schema(harness_path: &std::path::Path) -> proc_macro2::TokenStream {
-    // fixme: assumption that the schema file is at `{HARNESS_PATH}/harness_schema.json`
-    let schema_file_path = harness_path
-        .join("harness_schema.json")
-        .to_str()
-        .unwrap()
-        .to_string();
-
-    let schema_file = match std::fs::File::open(&schema_file_path) {
-        Ok(val) => val,
-        Err(err) => {
-            if cfg!(feature = "__harness-build") {
-                return syn::Error::new(Span::call_site(), "schema file not found, please call after the first build with `--features __harness-build`")
-                    .to_compile_error()
-                    .into();
-            }
-
-            return syn::Error::new(Span::call_site(), format!("schema file not found: {}", err))
-                .to_compile_error()
-                .into();
-        }
-    };
-
-    let schema: Schema = serde_json::from_reader(BufReader::new(schema_file))
-        .expect("schema file is not valid json");
-
-    let inter_schema = IntermediateSchema::from(schema);
-
-    let mut services = Vec::new();
-    for mut service in inter_schema.services {
-        service.args.iter_mut().for_each(|arg| {
-            to_candid_type(arg);
-        });
-        to_candid_type(&mut service.rets);
-
-        let name = service.name;
-        let rets = service.rets;
-        let args = service.args;
-        services.push(quote! {
-            ::harness_primitives::internals::Service {
-                name: String::from(#name),
-                args: vec![#(#args),*],
-                rets: #rets,
-            }
-        });
-    }
-
-    let version = {
-        if let Some(val) = inter_schema.version {
-            quote!(Some(String::from(#val)))
-        } else {
-            quote!(None)
-        }
-    };
-
-    let program = {
-        if let Some(val) = inter_schema.program {
-            quote!(Some(String::from(#val)))
-        } else {
-            quote!(None)
-        }
-    };
-
-    quote! {
-        ::harness_primitives::internals::Schema {
-            program: #program,
-            version: #version,
-            services: vec![#(#services),*],
-        }
-    }
+    retrieve_statics::get_program_()
 }
 
 fn to_candid_type(ty: &mut proc_macro2::TokenStream) {

@@ -3,6 +3,9 @@ TARGET="${CARGO_TARGET_DIR:-./target}"
 set -e
 cd "$(dirname $0)"
 
+# create assets path in current working directory
+mkdir -p ./harness_assets
+
 # first we build the harness code
 cargo build --features __harness-build --target wasm32-unknown-unknown --release
 
