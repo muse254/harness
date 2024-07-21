@@ -4,9 +4,8 @@ use crate::error::Error;
 
 /// This struct represents a program that can be loaded into the device.
 pub struct Program {
-    pub id: ProgramId,
     pub schema: crate::internals::Schema,
-    pub wasm: Option<&'static [u8]>,
+    pub wasm: &'static [u8],
 }
 
 /// The program identifier. It should be a human-readable identifier on the Harness network.
@@ -23,13 +22,20 @@ pub struct Program {
     candid::Deserialize,
     serde::Serialize,
 )]
-pub struct ProgramId(Box<str>);
+pub struct ProgramId(String);
+
+// todo!, rework
+impl ProgramId {
+    pub const fn new(program_id: String) -> Self {
+        Self(program_id)
+    }
+}
 
 impl TryFrom<String> for ProgramId {
     type Error = Error;
 
     fn try_from(program_id: String) -> std::result::Result<Self, Self::Error> {
-        Ok(Self(program_id.into_boxed_str()))
+        Ok(Self(program_id))
     }
 }
 

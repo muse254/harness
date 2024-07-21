@@ -107,34 +107,9 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// It should be called after all the harness functions have been annotated with `#[harness]` and brought into scope.
 #[must_use = "this macro must be invoked at the end of the file to register all harness functions"]
 #[proc_macro]
-pub fn harness_export(input: TokenStream) -> TokenStream {
+pub fn harness_export__(input: TokenStream) -> TokenStream {
     if cfg!(not(feature = "__harness-build")) {
-        let harness_code = get_binary();
-
-        return TokenStream::from(quote! {
-            use std::cell::{RefCell, Cell};
-
-            thread_local! {
-                static NEXT_DEVICE_ID: Cell<usize> = Cell::new(0); // rudimentary round robin scheduling
-                static ARBITER: RefCell<Arbiter> = RefCell::new(Arbiter::new(#harness_code));
-            }
-
-            /// There is no security done here, research to be done on how to prevent bad actors from registering devices
-            #[update]
-            fn register_device(url: String) {
-                ARBITER.with(|arbiter| {
-                    arbiter.borrow_mut().add_device(url);
-                });
-            }
-
-            /// Allows the user to retrieve the program code of the harness program.
-            #[query]
-            fn get_program_code() -> Vec<u8> {
-                ARBITER.with(|arbiter| {
-                    arbiter.borrow().get_program_code().expect("program code should be present"),
-                }).to_vec()
-            }
-        });
+        return TokenStream::from(quote! {});
     }
 
     if !input.is_empty() {
@@ -229,7 +204,7 @@ fn create_harness_function(
         } else {
             quote! {
                 // TODO: allow attributes to be passed to the DecoderConfig, or pick that up from ic_cdk?
-                let (#arg_vars) = Decode!(&payload, #(#arg_types),*)?;
+                let (#arg_vars) = ::candid::Decode!(&payload, #(#arg_types),*)?;
             }
         };
 
@@ -242,7 +217,7 @@ fn create_harness_function(
                     #fn_invocation;
                     return Ok(vec![]);
                 }
-                Ok(Encode!(&#fn_invocation)?)
+                Ok(::candid::Encode!(&#fn_invocation)?)
             }
         }
     };
@@ -291,10 +266,8 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
     Ok((args, rets))
 }
 
-/// This macro allows retrieval of the compiled harness program to memory at compile time. It looks into the `./harness_assets/harness_code.wasm`
-/// file and reads the bytes into memory.
 #[proc_macro]
-pub fn get_program(_item: TokenStream) -> TokenStream {
+pub fn get_schema(_: TokenStream) -> TokenStream {
     let schema = HARNESS_SCHEMA
         .lock()
         .expect("schema has default values")
@@ -321,39 +294,26 @@ pub fn get_program(_item: TokenStream) -> TokenStream {
     }
 
     let version = {
-        if let Some(val) = inter_schema.version {
-            quote!(Some(String::from(#val)))
-        } else {
-            quote!(None)
-        }
+        let val = inter_schema.version;
+        quote!(String::from(#val))
     };
 
     let program = {
-        if let Some(val) = inter_schema.program {
-            quote!(Some(String::from(#val)))
-        } else {
-            quote!(None)
-        }
+        let val = inter_schema.program;
+        quote!(String::from(#val))
     };
 
-    let schema = quote! {
+    TokenStream::from(quote! {
         harness_primitives::internals::Schema {
             program: #program,
             version: #version,
             services: vec![#(#services),*],
         }
-    };
-
-    return TokenStream::from(quote! {
-        harness_primitives::program::Program {
-            id: #schema.program.expect("program has default value").parse().unwrap(),
-            schema: #schema,
-            wasm: None,
-        }
-    });
+    })
 }
 
-fn get_binary() -> proc_macro2::TokenStream {
+#[proc_macro]
+pub fn get_binary__(_item: TokenStream) -> TokenStream {
     // get harness compiled code
     let path = std::path::Path::new(HARNESS_PATH);
     let mut f = match std::fs::File::open(&path) {
@@ -361,11 +321,11 @@ fn get_binary() -> proc_macro2::TokenStream {
         Err(_) => {
             if cfg!(not(feature = "__harness-build")) {
                 return syn::Error::new(Span::call_site(), format!("wasm file not found, please call after the first build with `--features __harness-build`"))
-                 .to_compile_error()
-                 .into();
+                  .to_compile_error()
+                  .into();
             }
 
-            return quote!(None);
+            return TokenStream::from(quote!(&[]));
         }
     };
 
@@ -373,14 +333,14 @@ fn get_binary() -> proc_macro2::TokenStream {
     f.read_to_end(&mut buffer)
         .expect("file read to succeed; qed");
 
-    quote! { &[#(#buffer),*] }
+    TokenStream::from(quote! { &[#(#buffer),*] })
 }
 
 fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
     match ty.is_empty() {
         true => {
             *ty = quote! {
-                candid_types::internal::TypeContainer::new().add::<()>().to_string()
+                ::candid::types::internal::TypeContainer::new().add::<()>().to_string()
             }
         }
         false => {
@@ -388,7 +348,7 @@ fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
                 // parse ty as a syn::Type
                 let _ty = syn::parse2::<Type>(ty.clone()).expect("failed to parse type");
                 quote! {
-                    candid_types::internal::TypeContainer::new().add::<#ty>().to_string()
+                    ::candid::types::internal::TypeContainer::new().add::<#ty>().to_string()
                 }
             }
         }

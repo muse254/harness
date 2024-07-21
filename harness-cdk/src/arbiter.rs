@@ -1,56 +1,57 @@
 //! This is is where the harness program is loaded at compile time, we create the arbiter to arbiter operations of the harness program.
 
+use std::cell::{Cell, RefCell};
+
 use candid::Nat;
 use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpResponse, TransformArgs};
 
-use harness_macros::get_program;
+use harness_macros::{get_binary__, get_schema};
 use harness_primitives::program::{Program, ProgramId};
 
-pub struct Arbiter {
+struct Arbiter {
     // The collection of device urls that have been registered with the arbiter.
     devices: Vec<String>,
     // The harness program that is loaded into the arbiter at compile time.
     program: Program,
 }
 
-impl Arbiter {
-    pub fn new(code: &'static [u8]) -> Self {
-        let mut program = get_program!();
-        if !code.is_empty() {
-            program.wasm = Some(code);
-        }
-
-        Self {
-            devices: Vec::new(),
-            program,
-        }
-    }
-
-    pub fn add_device(&mut self, device: String) {
-        self.devices.push(device);
-    }
-
-    pub const fn get_program_code(&self) -> Option<&'static [u8]> {
-        self.program.wasm
-    }
-
-    pub fn get_program_id(&self) -> ProgramId {
-        self.program.id.clone()
-    }
+#[cfg(not(feature = "__harness_build"))]
+thread_local! {
+    static NEXT_DEVICE_ID: Cell<usize> = Cell::new(0);// rudimentary round robin scheduling
+    static ARBITER: RefCell<Arbiter> = RefCell::new( Arbiter {
+        devices: Vec::new(),
+        program: Program { schema: get_schema!(), wasm: get_binary__!() },
+    });
 }
 
-pub fn get_next_device(
-    counter: &std::cell::Cell<usize>,
-    arbiter: &std::cell::RefCell<Arbiter>,
-) -> String {
-    let n_device_val = counter.get();
-    if n_device_val < arbiter.borrow().devices.len() {
-        counter.set(n_device_val + 1);
-    } else {
-        counter.set(0);
+#[cfg(not(feature = "__harness_build"))]
+pub struct StateAccessor;
+
+#[cfg(not(feature = "__harness_build"))]
+impl StateAccessor {
+    pub fn add_device(url: String) {
+        ARBITER.with(|arbiter| arbiter.borrow_mut().devices.push(url));
     }
 
-    arbiter.borrow().devices[n_device_val].clone()
+    pub fn get_program_code() -> Vec<u8> {
+        ARBITER.with(|arbiter| arbiter.borrow().program.wasm.to_vec())
+    }
+
+    pub fn get_program_id() -> ProgramId {
+        ARBITER.with(|arbiter| ProgramId::new(arbiter.borrow().program.schema.program.clone()))
+    }
+
+    pub fn get_next_device() -> String {
+        ARBITER.with(|arbiter| {
+            let devices = &arbiter.borrow().devices;
+            let next_device_id = NEXT_DEVICE_ID.with(|next_device_id| {
+                let id = next_device_id.get();
+                next_device_id.set((id + 1) % devices.len());
+                id
+            });
+            devices[next_device_id].clone()
+        })
+    }
 }
 
 // Copied over from example `send_http_post_rust`
@@ -101,8 +102,3 @@ fn harness_transform(raw: TransformArgs) -> HttpResponse {
     }
     res
 }
-
-// #[ic_cdk::query]
-// fn get_program_code() -> Vec<u8> {
-//     Arbiter::new(&[]).get_program_code().unwrap().to_vec()
-// }

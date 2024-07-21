@@ -38,7 +38,7 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
             quote! {
                 // the harness nodes speak Candid
                 let payload = response.body;
-                Decode!(payload, #type_path).expect("the response should implement CandidType; qed")
+                ::candid::Decode!(&payload, #type_path).expect("the response should implement CandidType; qed")
             }
         }
 
@@ -48,8 +48,8 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
     Ok(TokenStream::from(quote! {
         #[update]
         async fn #ident(#(#inputs),*) #output {
-            let device_url = get_next_device(&NEXT_DEVICE_ID, &ARBITER);
-            let program_id: String = ARBITER.with(|arbiter| arbiter.borrow().get_program_id()).into();
+            let device_url =  StateAccessor::get_next_device();
+            let program_id: String = StateAccessor::get_program_id().into();
 
             // TODO: research and tweak the context for maximal cost efficiency
             let context = harness_primitives::http::Context {
@@ -57,7 +57,7 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                 closing_price_index: 4,
             };
 
-            let body = Some(Encode!(&#(#args),*).expect("the data types should impl CandidType; qed"));
+            let body = Some(::candid::Encode!(&#(#args),*).expect("the data types should impl CandidType; qed"));
 
             let request = CanisterHttpRequestArgument {
                 url: device_url + "/procedure",
@@ -69,7 +69,7 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                         value: program_id,
                     },
                     HttpHeader {
-                        name: harness_primitives::http::Header::Procedure.to_string(),
+                        name: harness_primitives::http::Header::ProgramProc.to_string(),
                         value: String::from(#base_name),
                     },
                 ],
@@ -80,13 +80,12 @@ pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                 )),
             };
 
-
             // TODO: This call requires cycles payment. The required cycles is a function of the request size and max_response_bytes.
             // Check [Gas and cycles cost](https://internetcomputer.org/docs/current/developer-docs/gas-cost) for more details.
             match http_request(request, 10_000_000_000).await {
                 Ok((response,)) => {
                     // make sure the response is ok status
-                    if response.status !=  Nat::from(200u8) {
+                    if response.status !=  ::candid::Nat::from(200u8) {
                         panic!("The http_request resulted into error. \nStatus code: {}\nBody: `{:?}`", response.status, response.body);
                     }
 

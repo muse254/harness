@@ -34,6 +34,7 @@ serde_json = "1.0.120"
 rustversion = "1.0"
 trybuild = "1.0"
 harness-cdk = { path = ".", features = ["__harness-build"] }
+candid = "0.10.5"
 
 [features]
 __harness-build = ["harness-macros/__harness-build"]

@@ -1,13 +1,8 @@
-#[cfg(test)]
-use std::println as info;
+#![cfg(feature = "__harness-build")]
 
 #[test]
 fn test_schema_info() {
     // should be able to compile retrieve schema info
-    let program = harness_macros::get_program!();
-
-    let id: String = program.id.into();
-    assert!(!id.is_empty());
-    assert!(program.wasm.is_none());
-    info!("{:?}", program.schema);
+    let bin = harness_macros::get_binary__!();
+    assert!(!bin.is_empty());
 }

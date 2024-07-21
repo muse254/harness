@@ -7,16 +7,18 @@ use proc_macro2::TokenStream;
 /// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct Schema {
-    pub version: Option<String>,
-    pub program: Option<String>,
+    pub version: String,
+    pub program: String,
     pub services: Vec<Service>,
 }
 
 impl Schema {
     pub fn new() -> Self {
         Self {
-            version: std::env::var("CARGO_PKG_VERSION").ok(),
-            program: std::env::var("CARGO_PKG_NAME").ok(),
+            version: std::env::var("CARGO_PKG_VERSION")
+                .expect("expected CARGO_PKG_VERSION to be set; qed"),
+            program: std::env::var("CARGO_PKG_NAME")
+                .expect("expected CARGO_PKG_NAME to be set; qed"),
             services: vec![],
         }
     }
@@ -27,8 +29,8 @@ impl Schema {
 /// when generating code.
 #[derive(Clone)]
 pub struct IntermediateSchema {
-    pub version: Option<String>,
-    pub program: Option<String>,
+    pub version: String,
+    pub program: String,
     pub services: Vec<IntermediateService>,
 }
 

@@ -1,17 +1,10 @@
-// fixme: sort out this mess
+use std::cell::{Cell, RefCell};
 
-// re-exports
-pub use candid;
-pub use harness_primitives;
-pub use ic_cdk;
-pub use serde_json;
+use harness_macros::{get_binary__, get_schema};
 
-mod api;
 mod arbiter;
-mod utils;
 
 pub mod prelude {
-    pub use candid::{self, types as candid_types, Decode, DecoderConfig, Encode, Nat};
     pub use ic_cdk::{
         self,
         api::management_canister::http_request::{
@@ -23,40 +16,38 @@ pub mod prelude {
     pub use serde_json;
     pub use wapc_guest::{register_function, CallResult};
 
-    pub use harness_macros::{get_program, harness, harness_export};
+    pub use harness_macros::{get_binary__, get_schema, harness, harness_export__};
     pub use harness_primitives;
 
-    pub use crate::arbiter::{get_next_device, Arbiter};
+    pub use crate::harness_export;
+
+    #[cfg(not(feature = "__harness_build"))]
+    pub use crate::arbiter::StateAccessor;
 }
 
-fn scratch() {
+/// This macro is used to initialize the arbiter with the harness program. In the case of the first build, noop.
+#[macro_export]
+macro_rules! harness_export {
+    () => {
+        #[cfg(feature = "__harness_build")]
+        harness_export__!();
 
-    // let device_url = String::from("get_next_device(&NEXT_DEVICE_ID, &ARBITER)");
-    // let val = ic_cdk::api::management_canister::http_request::CanisterHttpRequestArgument {
-    //     url: device_url + "/procedure",
-    //     max_response_bytes: None,
-    // };
+        #[cfg(not(feature = "__harness_build"))]
+        use std::cell::{Cell, RefCell};
 
-    // let l1 = ();
-    // let l2 = ();
+        // There is no security done here, research to be done on how to prevent bad actors from registering devices
+        #[cfg(not(feature = "__harness_build"))]
+        #[update]
+        fn register_device(url: String) {
+            StateAccessor::add_device(url)
+        }
 
-    // let l = vec![1,2,3,45,5];
-
-    // let val = format!("{:?}", l.as_slice());
-
-    // let val = candid::Encode!(l1, l2).unwrap();
-
-    // match ic_cdk::api::management_canister::http_request::http_request({todo!()}, 10_000_000_000).await {
-    //     Ok((response,)) => {
-    //         // make sure the response is non-error status
-    //         if response.status !=  Nat::from(200u8) {
-    //             panic!("The http_request resulted into error. \nStatus code: {}\nBody: `{}`", response.status, response.body);
-    //         }
-
-    //         #decode_ret
-    //     }
-    //     Err((r, m)) => {
-    //         panic!("The http_request resulted into error. RejectionCode: {r:?}, Error: {m}");
-    //     }
-    // }
+        // Allows the user to retrieve the program code of the harness program.
+        // #[query]
+        // fn get_program_code() -> Vec<u8> {
+        //     ARBITER.with(|arbiter| {
+        //         arbiter.borrow().get_program_code().expect("program code should be present"),
+        //     }).to_vec()
+        // }
+    };
 }

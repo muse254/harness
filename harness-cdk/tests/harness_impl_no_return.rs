@@ -1,5 +1,6 @@
 #![cfg(feature = "__harness-build")]
 
+use candid::{Decode, Encode};
 use harness_cdk::prelude::*;
 
 #[test]
