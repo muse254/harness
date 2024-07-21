@@ -7,7 +7,7 @@ fn simple_function_test() {
         format!("Hello, {msg}!")
     }
 
-    harness_cdk::harness_export!();
+    harness_export!();
 
     let res = __harness_hello(&Encode!(&String::from("World")).unwrap()).unwrap();
     assert_eq!(
@@ -20,8 +20,8 @@ fn simple_function_test() {
 fn candid_serde() {
     let original_val = (1u8, "One".to_string());
     // encode value
-    let val = harness_cdk::Encode!(&original_val).unwrap();
+    let val = Encode!(&original_val).unwrap();
     // decode value
-    let val = harness_cdk::Decode!(&val, (u8, String)).unwrap();
+    let val = Decode!(&val, (u8, String)).unwrap();
     assert_eq!(original_val, val);
 }

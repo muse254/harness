@@ -1,18 +1,21 @@
 //! This crate provides the `harness` and `harness_export` macros.
-use std::{io::prelude::*, io::BufReader, sync::Mutex};
+use std::io::prelude::*;
+use std::sync::Mutex;
 
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{Error, ItemFn, Signature, Type};
 
-use harness_primitives::internals::{IntermediateSchema, Schema, Service};
+use harness_primitives::{
+    internals::{IntermediateSchema, Schema, Service},
+    HARNESS_PATH,
+};
 
 mod http_outcall;
-mod retrieve_statics;
 
 // `wapc_init` is reserved by the wapc protocol used in the project.
-const RESERVED_METHODS: [&str; 1] = ["wapc_init"];
+const RESERVED_METHODS: [&str; 2] = ["wapc_init", "register_function"];
 
 // This type maps the vanilla function name to the harness function name.
 // (vanilla_function_name, harness_function_name)
@@ -75,13 +78,20 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 );
             }
 
+            let (arg_types, ret_types) = get_args(&func.sig).unwrap();
             if cfg!(not(feature = "__harness-build")) {
+                // populate the schema
+                if let Err(e) = create_fn_schema_entry(&func.sig.ident, &arg_types, &ret_types) {
+                    return e.to_compile_error().into();
+                }
+
                 // create the http methods for the canister
                 return http_outcall::impl_http_outcall(func)
                     .map_or_else(|e| e.to_compile_error().into(), Into::into);
             }
 
-            create_harness_function(func).map_or_else(|e| e.to_compile_error().into(), Into::into)
+            create_harness_function(func, &arg_types, &ret_types)
+                .map_or_else(|e| e.to_compile_error().into(), Into::into)
         }
         Err(_) => TokenStream::from(
             syn::Error::new(
@@ -99,41 +109,30 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn harness_export(input: TokenStream) -> TokenStream {
     if cfg!(not(feature = "__harness-build")) {
-        // TODO: make sure this does not err out
+        let harness_code = get_binary();
+
         return TokenStream::from(quote! {
             use std::cell::{RefCell, Cell};
 
-            use ::harness_cdk::ic_cdk::{
-                self,
-                api::management_canister::http_request::{
-                    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse,
-                    TransformArgs, TransformContext,
-                }
-            };
-
             thread_local! {
-                static NEXT_DEVICE_ID: Cell<u64> = Cell::new(0); // rudimentary round robin scheduling
-                static ARBITER: RefCell<harness_cdk::arbiter::Arbiter> = RefCell::new(harness_cdk::arbiter::Arbiter::new().unwrap());
+                static NEXT_DEVICE_ID: Cell<usize> = Cell::new(0); // rudimentary round robin scheduling
+                static ARBITER: RefCell<Arbiter> = RefCell::new(Arbiter::new(#harness_code));
             }
 
             /// There is no security done here, research to be done on how to prevent bad actors from registering devices
-            #[ic_cdk::update]
-            pub fn register_device(url: String) {
+            #[update]
+            fn register_device(url: String) {
                 ARBITER.with(|arbiter| {
                     arbiter.borrow_mut().add_device(url);
                 });
             }
 
-            /// Allows the user to retrieve the program id and wasm code of the harness program loaded by the arbiter.
-            #[ic_cdk::query]
-            pub fn get_program_code() -> (String, &'static [u8]) {
+            /// Allows the user to retrieve the program code of the harness program.
+            #[query]
+            fn get_program_code() -> Vec<u8> {
                 ARBITER.with(|arbiter| {
-                    let arbiter = arbiter.borrow();
-                    (
-                        arbiter.get_program_id().into(),
-                        arbiter.get_program_code(),
-                    )
-                })
+                    arbiter.borrow().get_program_code().expect("program code should be present"),
+                }).to_vec()
             }
         });
     }
@@ -153,27 +152,10 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
         .map(|(k, v)| {
             let v = syn::parse_str::<Ident>(v).unwrap();
             quote! {
-                harness_cdk::register_function(#k, #v);
+                register_function(#k, #v);
             }
         })
         .collect::<Vec<_>>();
-
-    let schema = HARNESS_SCHEMA.lock().unwrap().clone();
-    let path = match ensure_path_created() {
-        Ok(path) => path.join("harness_schema.json"),
-        Err(e) => {
-            return syn::Error::new(Span::call_site(), e)
-                .to_compile_error()
-                .into();
-        }
-    };
-
-    // fixme: this assumes that at any one time, there is only one harness program being built, disambiguate for different programs
-    if let Err(err) = std::fs::write(path, serde_json::to_string(&schema).unwrap()) {
-        return syn::Error::new(Span::call_site(), err)
-            .to_compile_error()
-            .into();
-    }
 
     TokenStream::from(quote! {
         #[no_mangle]
@@ -183,14 +165,37 @@ pub fn harness_export(input: TokenStream) -> TokenStream {
     })
 }
 
-fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
-    let (arg_types, ret_types) = get_args(&func.sig)?;
+fn create_fn_schema_entry(
+    ident: &Ident,
+    arg_types: &[Type],
+    ret_types: &[Type],
+) -> syn::Result<()> {
+    match HARNESS_SCHEMA.lock() {
+        Ok(mut schema) => {
+            let args = arg_types.iter().map(|t| quote!(#t).to_string()).collect();
+            let rets = ret_types.iter().map(|t| quote!(#t).to_string()).collect();
+            schema.services.push(Service {
+                name: ident.to_string(),
+                args,
+                rets,
+            });
 
+            Ok(())
+        }
+        Err(e) => Err(syn::Error::new(Span::call_site(), e)),
+    }
+}
+
+fn create_harness_function(
+    func: ItemFn,
+    arg_types: &[Type],
+    ret_types: &[Type],
+) -> syn::Result<TokenStream> {
     // redundant check, but we want to be sure
     if ret_types.len() > 1 {
         return Err(syn::Error::new(
             Span::call_site(),
-            "we assume a singular or perhaps empty return type".to_string(),
+            "we assume a singular or perhaps empty return type",
         ));
     }
 
@@ -224,20 +229,20 @@ fn create_harness_function(func: ItemFn) -> syn::Result<TokenStream> {
         } else {
             quote! {
                 // TODO: allow attributes to be passed to the DecoderConfig, or pick that up from ic_cdk?
-                let (#arg_vars) = ::harness_cdk::Decode!(&payload, #(#arg_types),*)?;
+                let (#arg_vars) = Decode!(&payload, #(#arg_types),*)?;
             }
         };
 
         let no_return = ret_types.is_empty();
         quote! {
-            fn #harness_fn_name(payload: &[u8]) -> ::harness_cdk::CallResult {
+            fn #harness_fn_name(payload: &[u8]) -> CallResult {
                 #func
                 #decode_invocation
                 if #no_return {
                     #fn_invocation;
                     return Ok(vec![]);
                 }
-                Ok(::harness_cdk::Encode!(&#fn_invocation)?)
+                Ok(Encode!(&#fn_invocation)?)
             }
         }
     };
@@ -290,14 +295,92 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
 /// file and reads the bytes into memory.
 #[proc_macro]
 pub fn get_program(_item: TokenStream) -> TokenStream {
-    retrieve_statics::get_program_()
+    let schema = HARNESS_SCHEMA
+        .lock()
+        .expect("schema has default values")
+        .clone();
+
+    let inter_schema = IntermediateSchema::from(schema);
+    let mut services = Vec::new();
+    for mut service in inter_schema.services {
+        service.args.iter_mut().for_each(|arg| {
+            to_candid_type(arg);
+        });
+        to_candid_type(&mut service.rets);
+
+        let name = service.name;
+        let rets = service.rets;
+        let args = service.args;
+        services.push(quote! {
+            harness_primitives::internals::Service {
+                name: String::from(#name),
+                args: vec![#(#args),*],
+                rets: #rets,
+            }
+        });
+    }
+
+    let version = {
+        if let Some(val) = inter_schema.version {
+            quote!(Some(String::from(#val)))
+        } else {
+            quote!(None)
+        }
+    };
+
+    let program = {
+        if let Some(val) = inter_schema.program {
+            quote!(Some(String::from(#val)))
+        } else {
+            quote!(None)
+        }
+    };
+
+    let schema = quote! {
+        harness_primitives::internals::Schema {
+            program: #program,
+            version: #version,
+            services: vec![#(#services),*],
+        }
+    };
+
+    return TokenStream::from(quote! {
+        harness_primitives::program::Program {
+            id: #schema.program.expect("program has default value").parse().unwrap(),
+            schema: #schema,
+            wasm: None,
+        }
+    });
+}
+
+fn get_binary() -> proc_macro2::TokenStream {
+    // get harness compiled code
+    let path = std::path::Path::new(HARNESS_PATH);
+    let mut f = match std::fs::File::open(&path) {
+        Ok(val) => val,
+        Err(_) => {
+            if cfg!(not(feature = "__harness-build")) {
+                return syn::Error::new(Span::call_site(), format!("wasm file not found, please call after the first build with `--features __harness-build`"))
+                 .to_compile_error()
+                 .into();
+            }
+
+            return quote!(None);
+        }
+    };
+
+    let mut buffer = Vec::new();
+    f.read_to_end(&mut buffer)
+        .expect("file read to succeed; qed");
+
+    quote! { &[#(#buffer),*] }
 }
 
 fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
     match ty.is_empty() {
         true => {
             *ty = quote! {
-                ::candid::types::internal::TypeContainer::new().add::<()>().to_string()
+                candid_types::internal::TypeContainer::new().add::<()>().to_string()
             }
         }
         false => {
@@ -305,7 +388,7 @@ fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
                 // parse ty as a syn::Type
                 let _ty = syn::parse2::<Type>(ty.clone()).expect("failed to parse type");
                 quote! {
-                    ::candid::types::internal::TypeContainer::new().add::<#ty>().to_string()
+                    candid_types::internal::TypeContainer::new().add::<#ty>().to_string()
                 }
             }
         }

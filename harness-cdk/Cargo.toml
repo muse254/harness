@@ -14,6 +14,10 @@ required-features = ["harness-macros/__harness-build"]
 name = "embed_program"
 path = "macro_tests/embed_program.rs"
 
+[[test]]
+name = "schema_info"
+path = "macro_tests/schema_info.rs"
+
 [dependencies]
 thiserror = "1.0"
 anyhow = "1.0.81"

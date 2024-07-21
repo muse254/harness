@@ -1,3 +1,5 @@
+#![cfg(feature = "wasm-ext")]
+
 //! The Harness OS is the system that manages harness programs on the device. It is responsible for loading, unloading, and executing programs.
 use std::collections::HashMap;
 

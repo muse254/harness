@@ -5,8 +5,8 @@ use crate::error::Error;
 /// This struct represents a program that can be loaded into the device.
 pub struct Program {
     pub id: ProgramId,
-    pub wasm: &'static [u8],
     pub schema: crate::internals::Schema,
+    pub wasm: Option<&'static [u8]>,
 }
 
 /// The program identifier. It should be a human-readable identifier on the Harness network.

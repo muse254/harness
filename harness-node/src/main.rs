@@ -30,7 +30,7 @@ async fn main() -> Result<(), anyhow::Error> {
     println!("connect on port '{port}'"); // todo: do telemetry properly
 
     let mut server = network::NodeServer {
-        harness_os: HarnessOs::new(ProgramId::from_str("res_from_query").expect(""), &wasm)?, // todo
+        harness_os: HarnessOs::new(("res_from_query").parse()?, &wasm)?, // todo
     };
 
     loop {

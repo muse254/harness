@@ -3,6 +3,7 @@
 use candid::Nat;
 use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpResponse, TransformArgs};
 
+use harness_macros::get_program;
 use harness_primitives::program::{Program, ProgramId};
 
 pub struct Arbiter {
@@ -12,25 +13,24 @@ pub struct Arbiter {
     program: Program,
 }
 
-#[cfg(feature = "__harness-build")]
 impl Arbiter {
-    pub fn new() -> Result<Self, String> {
-        // making sure that the current schema is the same as the compiled program
-        // let schema = crate::get_schema!();
+    pub fn new(code: &'static [u8]) -> Self {
+        let mut program = get_program!();
+        if !code.is_empty() {
+            program.wasm = Some(code);
+        }
 
-        Ok(Self {
+        Self {
             devices: Vec::new(),
-            program: crate::get_program!(),
-        })
+            program,
+        }
     }
-}
 
-impl Arbiter {
     pub fn add_device(&mut self, device: String) {
         self.devices.push(device);
     }
 
-    pub fn get_program_code(&self) -> &'static [u8] {
+    pub const fn get_program_code(&self) -> Option<&'static [u8]> {
         self.program.wasm
     }
 
@@ -56,7 +56,7 @@ pub fn get_next_device(
 // Copied over from example `send_http_post_rust`
 // Strips all data that is not needed from the original response.
 #[ic_cdk::query]
-pub fn harness_transform(raw: TransformArgs) -> HttpResponse {
+fn harness_transform(raw: TransformArgs) -> HttpResponse {
     let headers = vec![
         HttpHeader {
             name: "Content-Security-Policy".to_string(),
@@ -101,3 +101,8 @@ pub fn harness_transform(raw: TransformArgs) -> HttpResponse {
     }
     res
 }
+
+// #[ic_cdk::query]
+// fn get_program_code() -> Vec<u8> {
+//     Arbiter::new(&[]).get_program_code().unwrap().to_vec()
+// }
