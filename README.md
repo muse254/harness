@@ -26,6 +26,8 @@ fn greet(name: String) -> String {
 harness_export!();
 ```
 
+There is no cli tool yet and none is planned atm. You can use the following script as a template to build your canister, [Here](./examples/hello/build.sh)
+
 ## TODO
 
 - [ ] Node implementations

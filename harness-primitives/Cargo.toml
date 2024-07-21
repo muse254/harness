@@ -5,19 +5,22 @@ edition = "2021"
 authors = ["Osoro Bironga <fanosoro@gmail.com>"]
 
 [dependencies]
+thiserror = { version = "1.0.59" }
 anyhow = "1.0.82"
 serde = "1.0.198"
 serde_json = "1.0.116"
-thiserror = "1.0.59"
-tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.37.0", features = [
+    "macros",
+    "rt-multi-thread",
+], optional = true }
 syn = { version = "2" }
 proc-macro2 = { version = "1", default-features = false }
 quote = "1.0.7"
-wapc = "1.1.0"
-wasmtime-provider = "1.16.0"
+wapc = { version = "1.1.0", optional = true }
+wasmtime-provider = { version = "1.16.0", optional = true }
 candid_parser = "0.1.4"
 candid = "0.10.8"
 const_format = "0.2.32"
 
 [features]
-unstable = []
+wasm-ext = ["wasmtime-provider", "wapc", "tokio"]

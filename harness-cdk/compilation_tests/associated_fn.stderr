@@ -1,4 +1,4 @@
-error: harness cannot be use on associated functions with `self` parameter
+error: harness cannot be used on associated functions with `self` parameter
  --> compilation_tests/associated_fn.rs:6:5
   |
 6 |     #[harness]

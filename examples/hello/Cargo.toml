@@ -9,4 +9,8 @@ readme = "README.md"
 crate-type = ["cdylib"]
 
 [dependencies]
-harness-cdk = { path = "../../harness-cdk", features = ["__harness-build"] }
+harness-cdk = { path = "../../harness-cdk" }
+candid = "0.10.5"
+
+[features]
+__harness-build = ["harness-cdk/__harness-build"]
