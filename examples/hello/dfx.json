@@ -1,0 +1,11 @@
+{
+    "canisters": {
+        "hello": {
+            "candid": "src/hello.did",
+            "package": "hello",
+            "type": "rust"
+        }
+    },
+    "output_env_file": ".env",
+    "version": 1
+}

@@ -1,5 +1,4 @@
 //! This is is where the harness program is loaded at compile time, we create the arbiter to arbiter operations of the harness program.
-
 use std::cell::{Cell, RefCell};
 
 use candid::Nat;
@@ -15,7 +14,6 @@ struct Arbiter {
     program: Program,
 }
 
-#[cfg(not(feature = "__harness_build"))]
 thread_local! {
     static NEXT_DEVICE_ID: Cell<usize> = Cell::new(0);// rudimentary round robin scheduling
     static ARBITER: RefCell<Arbiter> = RefCell::new( Arbiter {
@@ -24,10 +22,8 @@ thread_local! {
     });
 }
 
-#[cfg(not(feature = "__harness_build"))]
 pub struct StateAccessor;
 
-#[cfg(not(feature = "__harness_build"))]
 impl StateAccessor {
     pub fn add_device(url: String) {
         ARBITER.with(|arbiter| arbiter.borrow_mut().devices.push(url));

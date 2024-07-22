@@ -1,0 +1,4 @@
+service : {
+    "hello": (text) -> (text) query;
+    "register_device": (text);
+}

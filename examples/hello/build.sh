@@ -19,8 +19,9 @@ wasm-opt -Oz --strip-debug -o ~/.config/harness/harness_code.wasm $TARGET/wasm32
 cargo build --target wasm32-unknown-unknown --release
 
 # we can now generate the did file, piping the output to a file
-cargo install candid-extractor
-candid-extractor $TARGET/wasm32-unknown-unknown/release/hello.wasm > ./hello.did
+# should find a way to make candid-extractor work with current set-up as it currently looks into also the compiled wasm which breaks
+# cargo install candid-extractor
+# candid-extractor $TARGET/wasm32-unknown-unknown/release/hello.wasm > ./hello.did
 
 # using dfx we can now try deploy on out local network
-dfx deploy --network 'http://localhost:12345/' -y
+# dfx deploy --network 'http://localhost:12345/' -y
