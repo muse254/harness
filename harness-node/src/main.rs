@@ -1,18 +1,37 @@
-use tokio::io::BufStream;
+use core::panic;
+use std::str::FromStr as _;
 
-use harness_primitives::http::parse_request;
+use tokio::io::BufStream;
+use url::Url;
+
+use harness_primitives::{http::parse_request, program::ProgramId, HarnessOs};
 
 mod network;
 use network::start_server;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    // let harness_network = std::env::var("HARNESS_NETWORK")?;
+    // https://CANISTER_ID.ic0.app/sample-asset.txt
+    let canister_id = std::env::var("CANISTER_ID")?;
+    let canister_network = std::env::var("CANISTER_NETWORK")?; // Sample: ic0.app
+    let canister_url = Url::parse(&format!(
+        "https://{}.{}/harness_code.wasm",
+        canister_id, canister_network
+    ))?;
+
+    let res = reqwest::get(canister_url).await?;
+    if !res.status().is_success() {
+        panic!("failed to fetch wasm: {res:?}");
+    }
+
+    let wasm = res.bytes().await?;
 
     let (port, listener) = start_server().await?;
     println!("connect on port '{port}'"); // todo: do telemetry properly
 
-    let mut server = network::NodeServer::default();
+    let mut server = network::NodeServer {
+        harness_os: HarnessOs::new(("res_from_query").parse()?, &wasm)?, // todo
+    };
 
     loop {
         let (stream, _) = listener.accept().await?;

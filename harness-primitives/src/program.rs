@@ -4,9 +4,8 @@ use crate::error::Error;
 
 /// This struct represents a program that can be loaded into the device.
 pub struct Program {
-    pub id: ProgramId,
-    pub wasm: &'static [u8],
     pub schema: crate::internals::Schema,
+    pub wasm: &'static [u8],
 }
 
 /// The program identifier. It should be a human-readable identifier on the Harness network.
@@ -23,13 +22,20 @@ pub struct Program {
     candid::Deserialize,
     serde::Serialize,
 )]
-pub struct ProgramId(Box<str>);
+pub struct ProgramId(String);
+
+// todo!, rework
+impl ProgramId {
+    pub const fn new(program_id: String) -> Self {
+        Self(program_id)
+    }
+}
 
 impl TryFrom<String> for ProgramId {
     type Error = Error;
 
     fn try_from(program_id: String) -> std::result::Result<Self, Self::Error> {
-        Ok(Self(program_id.into_boxed_str()))
+        Ok(Self(program_id))
     }
 }
 
@@ -39,4 +45,24 @@ impl FromStr for ProgramId {
     fn from_str(program_id: &str) -> std::result::Result<Self, Self::Err> {
         Ok(Self(program_id.into()))
     }
+}
+
+impl Into<String> for ProgramId {
+    fn into(self) -> String {
+        self.0.into()
+    }
+}
+
+#[test]
+fn program_id_compatible_with_string() {
+    use crate::program::ProgramId;
+    use std::str::FromStr as _;
+
+    // Parsing program id from str
+    assert!("Using parse".parse::<ProgramId>().is_ok());
+    assert!(ProgramId::from_str("Using from_str").is_ok());
+
+    // Parsing str from program id
+    let program_id = "Parsing str".parse::<ProgramId>().unwrap();
+    let _: String = program_id.into();
 }

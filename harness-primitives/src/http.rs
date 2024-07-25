@@ -1,16 +1,22 @@
-use std::{
-    collections::HashMap,
-    fmt::{Display, Formatter},
-    io::Cursor,
-};
+use std::fmt::{Display, Formatter};
+#[cfg(feature = "wasm-ext")]
+use std::{collections::HashMap, io::Cursor};
 
 use candid::{CandidType, Deserialize};
+
+#[cfg(feature = "wasm-ext")]
 use tokio::io::{
     AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt,
 };
 
-use crate::error::{self, Error, Result};
+use crate::error::Error;
 
+// This struct is legacy code and is not really used in the code.
+#[derive(serde::Serialize, serde:: Deserialize)]
+pub struct Context {
+    pub bucket_start_time_index: usize,
+    pub closing_price_index: usize,
+}
 #[derive(CandidType, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct HeaderField(pub String, pub String);
 
@@ -22,6 +28,7 @@ pub struct Request {
     pub data: Vec<u8>,
 }
 
+#[cfg(feature = "wasm-ext")]
 #[derive(CandidType)]
 pub struct Response<T: AsyncRead + Unpin> {
     pub status_code: u16,
@@ -29,8 +36,9 @@ pub struct Response<T: AsyncRead + Unpin> {
     pub data: T,
 }
 
-impl From<error::Error> for Response<Cursor<Vec<u8>>> {
-    fn from(value: error::Error) -> Self {
+#[cfg(feature = "wasm-ext")]
+impl From<crate::error::Error> for Response<Cursor<Vec<u8>>> {
+    fn from(value: crate::error::Error) -> Self {
         let status_code = match &value {
             Error::IO { .. } => 400,
             Error::Internal { .. } | Error::Custom(_) => 500,
@@ -48,6 +56,7 @@ impl From<error::Error> for Response<Cursor<Vec<u8>>> {
     }
 }
 
+#[cfg(feature = "wasm-ext")]
 impl Response<Cursor<Vec<u8>>> {
     pub fn hello() -> Self {
         let data = "Hello, World!".as_bytes();
@@ -77,6 +86,7 @@ impl Response<Cursor<Vec<u8>>> {
     }
 }
 
+#[cfg(feature = "wasm-ext")]
 impl<T: AsyncRead + Unpin> Response<T> {
     pub fn status_and_headers(&self) -> String {
         let headers = self
@@ -106,7 +116,7 @@ pub enum Header {
     /// The procedure to call into
     ProgramProc,
     /// The URL of the harness node
-    HarnessNodeUrl,
+    DeviceUrl,
 }
 
 impl Display for Header {
@@ -114,7 +124,7 @@ impl Display for Header {
         match self {
             Header::ProgramId => write!(f, "Program-Identifier"),
             Header::ProgramProc => write!(f, "Program-Procedure"),
-            Header::HarnessNodeUrl => write!(f, "Harness-Node-Url"),
+            Header::DeviceUrl => write!(f, "Device-Url"),
         }
     }
 }
@@ -162,7 +172,10 @@ impl TryFrom<&str> for Method {
     }
 }
 
-pub async fn parse_request<T: AsyncBufRead + Unpin>(mut stream: T) -> Result<Request> {
+#[cfg(feature = "wasm-ext")]
+pub async fn parse_request<T: AsyncBufRead + Unpin>(
+    mut stream: T,
+) -> crate::error::Result<Request> {
     let mut line_buffer = String::new();
     stream.read_line(&mut line_buffer).await?;
 

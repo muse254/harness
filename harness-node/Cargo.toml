@@ -9,9 +9,10 @@ readme = "README.md"
 axum = "0.7.5"
 candid = "0.10.6"
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
-harness-primitives = { path = "../harness-primitives" }
+harness-primitives = { path = "../harness-primitives", features = ["wasm-ext"] }
 anyhow = "1.0.81"
 wapc = "1.1.0"
 wapc-codec = "1.1.0"
 wasmtime-provider = "1.16.0"
 reqwest = "0.12.4"
+url = "2.2.2"

@@ -15,6 +15,8 @@ fn main() {
     };
 
     if !std::path::Path::new(&path).exists() {
+        // make sure path is created and we have a stub file to defer errors
         std::fs::create_dir_all(&path).unwrap();
+        std::fs::File::create(std::path::Path::new(&path).join("harness_code.wasm")).unwrap();
     }
 }

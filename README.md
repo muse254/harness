@@ -10,12 +10,30 @@ This framework allows for an IC canister to be piggybacked on IoT devices for:
 - additional compute off-chain where reasonable or just
 - to provide a bridge between the IoT device and the IC.
 
+## How to use
+
+Let's create a sample hello world application.
+
+```rust
+use harness_cdk::{harness_export, harness};
+
+// we define a service, annotated with the #[harness] attribute
+#[harness]
+fn greet(name: String) -> String {
+    format!("Hello, {}!", name)
+}
+
+harness_export!();
+```
+
+There is no cli tool yet and none is planned atm. You can use the following script as a template to build your canister, [Here](./examples/hello/build.sh)
+
 ## TODO
 
 - [ ] Node implementations
-- [ ] CDK implementation
+- [x] CDK implementation
 - [x] Macros base implementation
-- [ ] Test examples
+- [x] Test examples
 - [ ] Running harness on chain
 
 ## Release notes

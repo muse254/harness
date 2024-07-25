@@ -1,4 +1,5 @@
-use harness_cdk::{harness, harness_export};
+use candid::{Decode, Encode};
+use harness_cdk::prelude::*;
 
 #[harness]
 fn hello(msg: String) -> String {
@@ -6,5 +7,3 @@ fn hello(msg: String) -> String {
 }
 
 harness_export!();
-
-fn main() {}

@@ -10,7 +10,6 @@ proc-macro = true
 
 [dependencies]
 syn = { version = "2", features = ["full"] }
-candid = "0.10.5"
 quote = "1.0.7"
 proc-macro2 = { version = "1", default-features = false }
 lazy_static = "1.4.0"

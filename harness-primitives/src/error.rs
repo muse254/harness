@@ -1,6 +1,9 @@
 //! Error handling primitives for the harness project.
 use thiserror::Error;
+
+#[cfg(feature = "wasm-ext")]
 use wapc::errors::Error as WapcError;
+#[cfg(feature = "wasm-ext")]
 use wasmtime_provider::errors::Error as WasmtimeError;
 
 pub type Result<T = ()> = std::result::Result<T, Error>;
@@ -65,6 +68,7 @@ impl From<std::io::Error> for Error {
     }
 }
 
+#[cfg(feature = "wasm-ext")]
 impl From<WapcError> for Error {
     fn from(err: WapcError) -> Self {
         match err {
@@ -79,6 +83,7 @@ impl From<WapcError> for Error {
     }
 }
 
+#[cfg(feature = "wasm-ext")]
 impl From<WasmtimeError> for Error {
     fn from(err: WasmtimeError) -> Self {
         match err {

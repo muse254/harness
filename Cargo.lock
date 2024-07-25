@@ -988,12 +988,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "candid",
+ "harness-cdk",
  "harness-macros",
  "harness-primitives",
  "ic-cdk",
  "ic-stable-structures",
  "rustversion",
  "serde",
+ "serde_json",
  "thiserror",
  "trybuild",
  "wapc-guest",
@@ -1004,6 +1006,7 @@ name = "harness-macros"
 version = "0.1.0"
 dependencies = [
  "candid",
+ "harness-cdk",
  "harness-primitives",
  "lazy_static",
  "proc-macro2",
@@ -1011,6 +1014,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn 2.0.52",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1023,6 +1027,7 @@ dependencies = [
  "harness-primitives",
  "reqwest",
  "tokio",
+ "url",
  "wapc",
  "wapc-codec",
  "wasmtime-provider",
@@ -1070,6 +1075,13 @@ name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
+
+[[package]]
+name = "hello"
+version = "0.1.0"
+dependencies = [
+ "harness-cdk",
+]
 
 [[package]]
 name = "hermit-abi"
@@ -2155,9 +2167,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.116"
+version = "1.0.120"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e17db7126d17feb94eb3fad46bf1a96b034e8aacbc2e775fe81505f8b0b2813"
+checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
 dependencies = [
  "itoa",
  "ryu",
