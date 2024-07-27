@@ -1,0 +1,46 @@
+name: Quality Gate
+
+on: [pull_request]
+
+jobs:
+    audit:
+        name: Audit
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout Sources
+            uses: actions/checkout@v3
+          - name: Install Toolchain
+            uses: actions-rs/toolchain@v1
+            with:
+              profile: minimal
+              toolchain: stable
+              default: true
+          - uses: Swatinem/rust-cache@v1
+          - name: Install Audit
+            run: cargo install cargo-audit
+          - name: Run Audit
+            run: cargo audit
+    
+    lint:
+        name: Clippy and fmt
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          - name: Install stable toolchain
+            uses: actions-rs/toolchain@v1
+            with:
+                profile: minimal
+                toolchain: stable
+                default: true
+                components: rustfmt, clippy
+          - uses: Swatinem/rust-cache@v1
+          - name: Test Format
+            run: cargo fmt -- --check
+          - run: cargo clippy --tests --all-features --all-targets -- -D clippy::all -D clippy::nursery
+        
+    cargo-fmt:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Run cargo fmt
+            run: cargo fmt --check

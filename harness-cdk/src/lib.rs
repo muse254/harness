@@ -7,16 +7,18 @@ pub mod prelude {
             http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse,
             TransformArgs, TransformContext,
         },
-        query, update,
+        export_candid, query, update,
     };
     pub use serde_json;
-    pub use wapc_guest::{self, register_function, CallResult, };
+
+    #[cfg(feature = "__harness-build")]
+    pub use wapc_guest::{self, register_function, CallResult};
 
     pub use harness_macros::{get_binary__, get_schema, harness, harness_export__};
     pub use harness_primitives;
 
-    pub use crate::harness_export;
     pub use crate::arbiter::StateAccessor;
+    pub use crate::harness_export;
 }
 
 /// This macro is used to initialize the arbiter with the harness program. In the case of the first build, noop.
@@ -27,17 +29,20 @@ macro_rules! harness_export {
         harness_export__!();
 
         // There is no security done here, research to be done on how to prevent bad actors from registering devices
+        #[cfg(not(feature = "__harness-build"))]
         #[update]
         fn register_device(url: String) {
             StateAccessor::add_device(url)
         }
 
         // Allows the user to retrieve the program code of the harness program.
-        // #[query]
-        // fn get_program_code() -> Vec<u8> {
-        //     ARBITER.with(|arbiter| {
-        //         arbiter.borrow().get_program_code().expect("program code should be present"),
-        //     }).to_vec()
-        // }
+        #[cfg(not(feature = "__harness-build"))]
+        #[query]
+        fn get_program_code() -> Vec<u8> {
+            StateAccessor::get_program_code()
+        }
+
+        #[cfg(not(feature = "__harness-build"))]
+        ic_cdk::export_candid!();
     };
 }

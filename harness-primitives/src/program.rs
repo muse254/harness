@@ -47,9 +47,9 @@ impl FromStr for ProgramId {
     }
 }
 
-impl Into<String> for ProgramId {
-    fn into(self) -> String {
-        self.0.into()
+impl From<ProgramId> for String {
+    fn from(val: ProgramId) -> Self {
+        val.0
     }
 }
 
@@ -64,5 +64,5 @@ fn program_id_compatible_with_string() {
 
     // Parsing str from program id
     let program_id = "Parsing str".parse::<ProgramId>().unwrap();
-    let _: String = program_id.into();
+    _ = String::from(program_id);
 }
