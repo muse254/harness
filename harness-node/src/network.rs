@@ -14,7 +14,7 @@ use harness_primitives::{
 };
 
 #[derive(Default)]
-pub(crate) struct NodeServer {
+pub struct NodeServer {
     pub harness_os: HarnessOs,
 }
 

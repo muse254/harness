@@ -51,7 +51,7 @@ impl From<crate::error::Error> for Response<Cursor<Vec<u8>>> {
                 "Content-Type".to_string(),
                 "text/plain".to_string(),
             )],
-            data: Cursor::new(val_str.as_bytes().to_vec().into()),
+            data: Cursor::new(val_str.as_bytes().to_vec()),
         }
     }
 }
@@ -59,7 +59,7 @@ impl From<crate::error::Error> for Response<Cursor<Vec<u8>>> {
 #[cfg(feature = "wasm-ext")]
 impl Response<Cursor<Vec<u8>>> {
     pub fn hello() -> Self {
-        let data = "Hello, World!".as_bytes();
+        let data = b"Hello, World!";
 
         Self {
             status_code: 202,
@@ -87,7 +87,7 @@ impl Response<Cursor<Vec<u8>>> {
 }
 
 #[cfg(feature = "wasm-ext")]
-impl<T: AsyncRead + Unpin> Response<T> {
+impl<T: AsyncRead + Unpin + Send> Response<T> {
     pub fn status_and_headers(&self) -> String {
         let headers = self
             .headers
@@ -99,7 +99,10 @@ impl<T: AsyncRead + Unpin> Response<T> {
         format!("HTTP/1.1 {}\r\n{headers}\r\n\r\n", self.status_code)
     }
 
-    pub async fn write<S: AsyncWrite + Unpin>(mut self, stream: &mut S) -> anyhow::Result<()> {
+    pub async fn write<S: AsyncWrite + Unpin + Send>(
+        mut self,
+        stream: &mut S,
+    ) -> anyhow::Result<()> {
         stream
             .write_all(self.status_and_headers().as_bytes())
             .await?;
@@ -122,9 +125,9 @@ pub enum Header {
 impl Display for Header {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Header::ProgramId => write!(f, "Program-Identifier"),
-            Header::ProgramProc => write!(f, "Program-Procedure"),
-            Header::DeviceUrl => write!(f, "Device-Url"),
+            Self::ProgramId => write!(f, "Program-Identifier"),
+            Self::ProgramProc => write!(f, "Program-Procedure"),
+            Self::DeviceUrl => write!(f, "Device-Url"),
         }
     }
 }
@@ -139,10 +142,10 @@ pub enum Status {
 impl Display for Status {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Status::Ok => write!(f, "200 OK"),
-            Status::Created => write!(f, "201 Created"),
-            Status::BadRequest => write!(f, "400 Bad Request"),
-            Status::NotFound => write!(f, "404 Not Found"),
+            Self::Ok => write!(f, "200 OK"),
+            Self::Created => write!(f, "201 Created"),
+            Self::BadRequest => write!(f, "400 Bad Request"),
+            Self::NotFound => write!(f, "404 Not Found"),
         }
     }
 }
@@ -160,12 +163,12 @@ impl TryFrom<&str> for Method {
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         match value.to_uppercase().as_str() {
-            "GET" => Ok(Method::GET),
-            "POST" => Ok(Method::POST),
-            "DELETE" => Ok(Method::DELETE),
-            "HEAD" => Ok(Method::HEAD),
+            "GET" => Ok(Self::GET),
+            "POST" => Ok(Self::POST),
+            "DELETE" => Ok(Self::DELETE),
+            "HEAD" => Ok(Self::HEAD),
             m => Err(Error::IO {
-                message: format!("unsupported method: {m}").to_string(),
+                message: format!("unsupported method: {m}"),
                 inner: None,
             }),
         }
@@ -173,7 +176,7 @@ impl TryFrom<&str> for Method {
 }
 
 #[cfg(feature = "wasm-ext")]
-pub async fn parse_request<T: AsyncBufRead + Unpin>(
+pub async fn parse_request<T: AsyncBufRead + Unpin + Send>(
     mut stream: T,
 ) -> crate::error::Result<Request> {
     let mut line_buffer = String::new();
@@ -200,19 +203,19 @@ pub async fn parse_request<T: AsyncBufRead + Unpin>(
             // fixme: rework this to not depend on content-length. Using `read_to_end` has blocking issues
             if let Some(mut length) = headers.get("Content-Length").cloned() {
                 length.retain(|c| !c.is_whitespace() && !c.eq(&'\r') && !c.eq(&'\n'));
-                let length = u32::from_str_radix(&length, 10).map_err(|e| Error::IO {
+                let length = length.parse::<u32>().map_err(|e| Error::IO {
                     message: "Content-Length using unexpected format".to_string(),
                     inner: Some(e.into()),
                 })? as usize;
 
-                data = vec![0; length];
-                stream.read_exact(&mut data).await?;
+                data = Vec::with_capacity(length);
+                stream.read_buf(&mut data).await?;
             }
 
             break;
         }
 
-        let mut comps = line_buffer.split(":");
+        let mut comps = line_buffer.split(':');
         let key = comps
             .next()
             .ok_or(Error::io::<anyhow::Error>("missing header name", None))?

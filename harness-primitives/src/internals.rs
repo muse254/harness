@@ -12,6 +12,12 @@ pub struct Schema {
     pub services: Vec<Service>,
 }
 
+impl Default for Schema {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Schema {
     pub fn new() -> Self {
         Self {
@@ -36,7 +42,7 @@ pub struct IntermediateSchema {
 
 impl From<Schema> for IntermediateSchema {
     fn from(schema: Schema) -> Self {
-        IntermediateSchema {
+        Self {
             version: schema.version,
             program: schema.program,
             services: schema
@@ -71,7 +77,7 @@ pub struct IntermediateService {
 
 impl From<Service> for IntermediateService {
     fn from(service: Service) -> Self {
-        IntermediateService {
+        Self {
             name: service.name,
             args: service
                 .args

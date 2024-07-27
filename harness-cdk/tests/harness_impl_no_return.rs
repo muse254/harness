@@ -14,7 +14,7 @@ fn simple_function_test_no_return() {
         #[harness]
         fn hello(_: String) -> String {
             println!("Hello, World!");
-            return String::new();
+            String::new()
         }
 
         harness_export!();

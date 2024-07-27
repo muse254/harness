@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Error, ItemFn, ReturnType};
 
-pub(crate) fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
+pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
     let ident = &func.sig.ident;
     let base_name = format!("__harness_{ident}");
 

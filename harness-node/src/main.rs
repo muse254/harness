@@ -1,10 +1,9 @@
 use core::panic;
-use std::str::FromStr as _;
 
 use tokio::io::BufStream;
 use url::Url;
 
-use harness_primitives::{http::parse_request, program::ProgramId, HarnessOs};
+use harness_primitives::{http::parse_request, HarnessOs};
 
 mod network;
 use network::start_server;

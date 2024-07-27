@@ -15,7 +15,7 @@ This framework allows for an IC canister to be piggybacked on IoT devices for:
 Let's create a sample hello world application.
 
 ```rust
-use harness_cdk::{harness_export, harness};
+use harness_cdk::prelude::*;
 
 // we define a service, annotated with the #[harness] attribute
 #[harness]
@@ -34,7 +34,7 @@ There is no cli tool yet and none is planned atm. You can use the following scri
 - [x] CDK implementation
 - [x] Macros base implementation
 - [x] Test examples
-- [ ] Running harness on chain
+- [x] Running harness on localnet
 
 ## Release notes
 
