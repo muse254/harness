@@ -55,7 +55,6 @@ impl HarnessOs {
         }
     }
 
-    #[allow(clippy::collection_is_never_read, clippy::needless_pass_by_value)] // todo
     /// Adds a new program to the device.
     pub fn add_program(&mut self, program_id: ProgramId, program: &[u8]) -> Result<()> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
@@ -67,10 +66,8 @@ impl HarnessOs {
             Some(Box::new(move |_a, _b, _c, _d, _e| Ok(vec![]))), // todo?
         )?;
 
-        let mut harness_os = HashMap::new();
-        harness_os.insert(program_id, host_instance);
-
-        todo!()
+        _ = self.0.insert(program_id, host_instance);
+        Ok(())
     }
 
     /// Removes a program from the set, noop if not found.
