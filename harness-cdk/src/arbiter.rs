@@ -1,7 +1,6 @@
 //! This is is where the harness program is loaded at compile time, we create the arbiter to arbiter operations of the harness program.
 use std::cell::{Cell, RefCell};
 
-use candid::Nat;
 use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpResponse, TransformArgs};
 
 use harness_macros::{get_binary__, get_schema};
@@ -15,7 +14,9 @@ struct Arbiter {
 }
 
 thread_local! {
-    static NEXT_DEVICE_ID: Cell<usize> = Cell::new(0);// rudimentary round robin scheduling
+    static NEXT_DEVICE_ID: Cell<usize> = const{ Cell::new(0)};// rudimentary round robin scheduling
+
+    #[allow(clippy::large_stack_frames)]
     static ARBITER: RefCell<Arbiter> = RefCell::new( Arbiter {
         devices: Vec::new(),
         program: Program { schema: get_schema!(), wasm: get_binary__!() },
@@ -85,10 +86,9 @@ fn harness_transform(raw: TransformArgs) -> HttpResponse {
         status: raw.response.status.clone(),
         body: raw.response.body.clone(),
         headers,
-        ..Default::default()
     };
 
-    if res.status == Nat::from(200u8) {
+    if res.status == 200u8 {
         res.body = raw.response.body;
     } else {
         ic_cdk::api::print(format!(

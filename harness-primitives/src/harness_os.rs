@@ -19,7 +19,7 @@ impl HarnessOs {
     /// This is responsible for instantiating the host process needed to load the program
     pub fn new(program_id: ProgramId, program: &[u8]) -> Result<Self> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
-            .module_bytes(&program)
+            .module_bytes(program)
             .build()?;
 
         let host_instance = WapcHost::new(
@@ -30,12 +30,12 @@ impl HarnessOs {
         let mut harness_os = HashMap::new();
         harness_os.insert(program_id, host_instance);
 
-        Ok(HarnessOs(harness_os))
+        Ok(Self(harness_os))
     }
 
     /// Returns the list of program identifiers that are currently loaded in the device.
     pub fn program_ids(&self) -> Vec<ProgramId> {
-        self.0.keys().map(|k| k.clone()).collect::<Vec<_>>()
+        self.0.keys().cloned().collect()
     }
 
     /// This calls the operation and returns the result or appropriate errors to the caller.
@@ -55,10 +55,11 @@ impl HarnessOs {
         }
     }
 
+    #[allow(clippy::collection_is_never_read)]
     /// Adds a new program to the device.
     pub fn add_program(&mut self, program_id: ProgramId, program: &[u8]) -> Result<()> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
-            .module_bytes(&program)
+            .module_bytes(program)
             .build()?;
 
         let host_instance = WapcHost::new(

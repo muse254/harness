@@ -316,11 +316,11 @@ pub fn get_schema(_: TokenStream) -> TokenStream {
 pub fn get_binary__(_item: TokenStream) -> TokenStream {
     // get harness compiled code
     let path = std::path::Path::new(HARNESS_PATH);
-    let mut f = match std::fs::File::open(&path) {
+    let mut f = match std::fs::File::open(path) {
         Ok(val) => val,
         Err(_) => {
             if cfg!(not(feature = "__harness-build")) {
-                return syn::Error::new(Span::call_site(), format!("wasm file not found, please call after the first build with `--features __harness-build`"))
+                return syn::Error::new(Span::call_site(), "wasm file not found, please call after the first build with `--features __harness-build`")
                   .to_compile_error()
                   .into();
             }

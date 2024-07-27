@@ -1,4 +1,5 @@
 #![cfg(feature = "__harness-build")]
+#![allow(clippy::large_stack_frames)]
 
 #[test]
 fn test_schema_info() {
