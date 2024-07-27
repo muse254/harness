@@ -55,7 +55,7 @@ impl HarnessOs {
         }
     }
 
-    #[allow(clippy::collection_is_never_read)]
+    #[allow(clippy::collection_is_never_read, clippy::needless_pass_by_value)] // todo
     /// Adds a new program to the device.
     pub fn add_program(&mut self, program_id: ProgramId, program: &[u8]) -> Result<()> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
