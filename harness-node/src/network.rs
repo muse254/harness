@@ -5,11 +5,12 @@ use std::{
     net::{Ipv4Addr, SocketAddrV4},
 };
 
+use ic_agent::{export::Principal, Agent};
 use tokio::net::TcpListener;
 
 use harness_primitives::{
     error::{Error, Result},
-    http::{get_header, Header, Method, Request, Response},
+    http::{get_header, Header, Method, PoolPrograms, Request, Response},
     HarnessOs,
 };
 
@@ -19,11 +20,43 @@ pub struct NodeServer {
 }
 
 impl NodeServer {
-    pub fn handler(&mut self, req: Request) -> Result<Response<Cursor<Vec<u8>>>> {
+    pub async fn handler(&mut self, req: Request) -> Result<Response<Cursor<Vec<u8>>>> {
         match (Method::try_from(req.method.as_str())?, req.path.as_str()) {
             (Method::GET, "/hello") => Ok(Response::hello()),
 
+            // TODO: rework with tests and proper implementation
             (Method::POST, "/program") => {
+                let programs = match serde_json::from_slice::<PoolPrograms>(&req.data) {
+                    Ok(programs) => programs,
+                    Err(err) => {
+                        return Ok(Response {
+                            status_code: 400,
+                            data: Cursor::new(err.to_string().into_bytes()),
+                            headers: vec![],
+                        })
+                    }
+                };
+
+                let agent = Agent::builder().build().unwrap();
+                // Only do the following call when not contacting the IC main net (e.g. a local emulator).
+                // This is important as the main net public key is static and a rogue network could return
+                // a different key.
+                // If you know the root key ahead of time, you can use `agent.set_root_key(root_key);`.
+                agent.fetch_root_key().await.unwrap();
+
+                // get the program code, calling the IC canister
+                for harness_canister in programs.ic_canisters {
+                    let effective_canister_id =
+                        Principal::from_text(harness_canister.canister_id).unwrap();
+                    let response = agent
+                        .query(&effective_canister_id, "account_balance")
+                        .await
+                        .unwrap();
+
+                    self.harness_os
+                        .add_program(harness_canister.program_id.parse()?, &response)?;
+                }
+
                 let program_id =
                     get_header(&Header::ProgramId.to_string(), &req.headers).ok_or(Error::IO {
                         message: "Program-Identifier header could not be retrieved".to_string(),
@@ -41,28 +74,50 @@ impl NodeServer {
             }
 
             (Method::POST, "/procedure") => {
-                let program_id =
-                    get_header(&Header::ProgramId.to_string(), &req.headers).ok_or(Error::IO {
-                        message: "Program-Identifier header could not be retrieved".to_string(),
-                        inner: None,
-                    })?;
+                let program_id = match get_header(&Header::ProgramId.to_string(), &req.headers) {
+                    Some(program_id) => program_id,
+                    None => {
+                        return Ok(Response {
+                            status_code: 400,
+                            data: Cursor::new(
+                                "Program-Identifier header could not be retrieved".into(),
+                            ),
+                            headers: vec![],
+                        })
+                    }
+                };
 
-                let procedure = get_header(&Header::ProgramProc.to_string(), &req.headers).ok_or(
-                    Error::IO {
-                        message: "Program-Procedure header could not be retrieved".to_string(),
-                        inner: None,
-                    },
-                )?;
+                let procedure = match get_header(&Header::ProgramProc.to_string(), &req.headers) {
+                    Some(procedure) => procedure,
+                    None => {
+                        return Ok(Response {
+                            status_code: 400,
+                            data: Cursor::new(
+                                "Program-Procedure header could not be retrieved".into(),
+                            ),
+                            headers: vec![],
+                        })
+                    }
+                };
 
-                let res =
-                    self.harness_os
-                        .call_operation(&program_id.parse()?, &procedure, &req.data)?;
-
-                Ok(Response {
-                    status_code: 200,
-                    data: Cursor::new(res),
-                    headers: vec![],
-                })
+                match self
+                    .harness_os
+                    .call_operation(&program_id.parse()?, &procedure, &req.data)
+                {
+                    Ok(res) => Ok(Response {
+                        status_code: 200,
+                        data: Cursor::new(res),
+                        headers: vec![],
+                    }),
+                    Err(err) => {
+                        eprintln!("{err}");
+                        Ok(Response {
+                            status_code: 400,
+                            data: Cursor::new(err.to_string().into_bytes()),
+                            headers: vec![],
+                        })
+                    }
+                }
             }
 
             (Method::DELETE, "/program") => {
