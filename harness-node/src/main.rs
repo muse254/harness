@@ -1,12 +1,10 @@
-use core::panic;
+use std::net::{Ipv4Addr, SocketAddrV4};
 
-use tokio::io::BufStream;
-use url::Url;
+use tokio::{io::BufStream, net::TcpListener};
 
-use harness_primitives::{http::parse_request, HarnessOs};
+use harness_primitives::{error::Error, http::parse_request, HarnessOs};
 
 mod network;
-use network::start_server;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -35,4 +33,21 @@ async fn main() -> Result<(), anyhow::Error> {
             }
         }
     }
+}
+
+/// Starts a server on a random port and returns the port and the listener.
+async fn start_server() -> harness_primitives::error::Result<(u16, TcpListener)> {
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
+        .await
+        .map_err(|err| Error::io("failed to bind to a port", err.into()))?;
+
+    let port = match std::env::var("HARNESS_PORT") {
+        Ok(port) => port.parse::<u16>().unwrap(),
+        Err(_) => listener
+            .local_addr()
+            .map_err(|err| Error::io("failed to get local address for port", err.into()))?
+            .port(),
+    };
+
+    Ok((port, listener))
 }

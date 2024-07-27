@@ -1,12 +1,7 @@
 //! This holds the networking code for a node. TODO/FIXME!?: if target is wasm use fetch api, else continue in tokio
-
-use std::{
-    io::Cursor,
-    net::{Ipv4Addr, SocketAddrV4},
-};
+use std::io::Cursor;
 
 use ic_agent::{export::Principal, Agent};
-use tokio::net::TcpListener;
 
 use harness_primitives::{
     error::{Error, Result},
@@ -15,11 +10,11 @@ use harness_primitives::{
 };
 
 #[derive(Default)]
-pub struct NodeServer {
-    pub harness_os: HarnessOs,
+pub struct NodeServer<'a> {
+    pub harness_os: HarnessOs<'a>,
 }
 
-impl NodeServer {
+impl<'a> NodeServer<'a> {
     pub async fn handler(&mut self, req: Request) -> Result<Response<Cursor<Vec<u8>>>> {
         match (Method::try_from(req.method.as_str())?, req.path.as_str()) {
             (Method::GET, "/hello") => Ok(Response::hello()),
@@ -54,17 +49,9 @@ impl NodeServer {
                         .unwrap();
 
                     self.harness_os
-                        .add_program(harness_canister.program_id.parse()?, &response)?;
+                        .add_program(harness_canister.program_id.parse()?, &response)
+                        .await?;
                 }
-
-                let program_id =
-                    get_header(&Header::ProgramId.to_string(), &req.headers).ok_or(Error::IO {
-                        message: "Program-Identifier header could not be retrieved".to_string(),
-                        inner: None,
-                    })?;
-
-                self.harness_os
-                    .add_program(program_id.parse()?, &req.data)?;
 
                 Ok(Response {
                     status_code: 202,
@@ -103,6 +90,7 @@ impl NodeServer {
                 match self
                     .harness_os
                     .call_operation(&program_id.parse()?, &procedure, &req.data)
+                    .await
                 {
                     Ok(res) => Ok(Response {
                         status_code: 200,
@@ -143,17 +131,4 @@ impl NodeServer {
             }),
         }
     }
-}
-
-/// Starts a server on a random port and returns the port and the listener.
-pub async fn start_server() -> Result<(u16, TcpListener)> {
-    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
-        .await
-        .map_err(|err| Error::io("failed to bind to a port", err.into()))?;
-
-    let port = listener
-        .local_addr()
-        .map_err(|err| Error::io("failed to get local address for port", err.into()))?
-        .port();
-    Ok((port, listener))
 }
