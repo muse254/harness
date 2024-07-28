@@ -31,14 +31,10 @@ pub struct Request {
 
 /// This is the payload to the harness node to poll an IC canister from the IC network.
 #[derive(Serialize, Deserialize)]
-pub struct PoolPrograms {
-    pub ic_canisters: Vec<HarnessCanister>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct HarnessCanister {
+pub struct PullProgram {
     pub canister_id: String,
     pub program_id: String,
+    pub url: String,
 }
 
 #[cfg(feature = "wasm-ext")]

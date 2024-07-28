@@ -42,6 +42,20 @@ macro_rules! harness_export {
             StateAccessor::get_program_code()
         }
 
+        // Allows the user to get the list of devices that have been registered with the arbiter.
+        // there should be a way to filter if user has permissions which is not a priority at the moment.
+        #[cfg(not(feature = "__harness-build"))]
+        #[query]
+        fn get_devices() -> Vec<String> {
+            StateAccessor::get_devices()
+        }
+
+        #[cfg(not(feature = "__harness-build"))]
+        #[update]
+        fn remove_device(url: String) {
+            StateAccessor::remove_device(url)
+        }
+
         #[cfg(not(feature = "__harness-build"))]
         ic_cdk::export_candid!();
     };

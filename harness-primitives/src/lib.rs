@@ -4,9 +4,11 @@ pub mod harness_os;
 pub mod http;
 pub mod internals;
 pub mod program;
+pub mod result;
 
 #[cfg(feature = "wasm-ext")]
 pub use harness_os::HarnessOs;
+pub use result::HarnessResult;
 
 /// Way easier to have a static path in our system that holds all files
 /// that we need to run the harness system instead of having to pass env variable for this.

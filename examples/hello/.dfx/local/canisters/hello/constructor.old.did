@@ -1,5 +1,0 @@
-service : {
-  get_program_code : () -> (blob) query;
-  hello : (text) -> (text);
-  register_device : (text) -> ();
-}
