@@ -4,7 +4,10 @@ use std::cell::{Cell, RefCell};
 use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpResponse, TransformArgs};
 
 use harness_macros::{get_binary__, get_schema};
-use harness_primitives::program::{Program, ProgramId};
+use harness_primitives::{
+    error::{Error, Result},
+    program::{Program, ProgramId},
+};
 
 struct Arbiter {
     // The collection of device urls that have been registered with the arbiter.
@@ -23,6 +26,7 @@ thread_local! {
     });
 }
 
+/// This is redirection that does not expose the ARBITER to the user.
 pub struct StateAccessor;
 
 impl StateAccessor {
@@ -38,16 +42,37 @@ impl StateAccessor {
         ARBITER.with(|arbiter| ProgramId::new(arbiter.borrow().program.schema.program.clone()))
     }
 
-    pub fn get_next_device() -> String {
+    pub fn get_next_device() -> Result<String> {
         ARBITER.with(|arbiter| {
             let devices = &arbiter.borrow().devices;
-            let next_device_id = NEXT_DEVICE_ID.with(|next_device_id| {
+            if devices.is_empty() {
+                return Err(Error::Internal {
+                    message: "No devices registered".to_string(),
+                    inner: None,
+                });
+            }
+
+            let idx = NEXT_DEVICE_ID.with(|next_device_id| {
                 let id = next_device_id.get();
                 next_device_id.set((id + 1) % devices.len());
                 id
             });
-            devices[next_device_id].clone()
+
+            Ok(devices[idx].clone())
         })
+    }
+
+    pub fn get_devices() -> Vec<String> {
+        ARBITER.with(|arbiter| arbiter.borrow().devices.clone())
+    }
+
+    pub fn remove_device(url: String) {
+        ARBITER.with(|arbiter| {
+            let devices = &mut arbiter.borrow_mut().devices;
+            if let Some(idx) = devices.iter().position(|x| x == &url) {
+                devices.remove(idx);
+            }
+        });
     }
 }
 

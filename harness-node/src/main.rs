@@ -1,36 +1,14 @@
-use core::panic;
-
+use harness_node::{start_server, NodeServer};
 use tokio::io::BufStream;
-use url::Url;
 
-use harness_primitives::{http::parse_request, HarnessOs};
-
-mod network;
-use network::start_server;
+use harness_primitives::http::parse_request;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    // https://CANISTER_ID.ic0.app/sample-asset.txt
-    let canister_id = std::env::var("CANISTER_ID")?;
-    let canister_network = std::env::var("CANISTER_NETWORK")?; // Sample: ic0.app
-    let canister_url = Url::parse(&format!(
-        "https://{}.{}/harness_code.wasm",
-        canister_id, canister_network
-    ))?;
-
-    let res = reqwest::get(canister_url).await?;
-    if !res.status().is_success() {
-        panic!("failed to fetch wasm: {res:?}");
-    }
-
-    let wasm = res.bytes().await?;
-
     let (port, listener) = start_server().await?;
     println!("connect on port '{port}'"); // todo: do telemetry properly
 
-    let mut server = network::NodeServer {
-        harness_os: HarnessOs::new(("res_from_query").parse()?, &wasm)?, // todo
-    };
+    let mut server = NodeServer::default();
 
     loop {
         let (stream, _) = listener.accept().await?;
@@ -40,7 +18,7 @@ async fn main() -> Result<(), anyhow::Error> {
         // also multiple programs so really should not be sequential here
         match parse_request(&mut stream).await {
             Ok(req) => {
-                let resp = server.handler(req).unwrap_or_else(|e| e.into());
+                let resp = server.handler(req).await.unwrap_or_else(|e| e.into());
                 if let Err(err) = resp.write(&mut stream).await {
                     println!("{err}")
                 }

@@ -1,5 +1,8 @@
+type HarnessResult = record { data : opt text; error : text; success : bool };
 service : {
+  get_devices : () -> (vec text) query;
   get_program_code : () -> (blob) query;
-  hello : (text) -> (text);
+  hello : (text) -> (HarnessResult);
   register_device : (text) -> ();
+  remove_device : (text) -> ();
 }

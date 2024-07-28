@@ -27,28 +27,31 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
         }
     }
 
-    let output = func.sig.output;
-    let decode_ret = match output.clone() {
+    let (output, decode_ret) = match func.sig.output.clone() {
         ReturnType::Type(_, ty) => {
             let type_path = match *ty {
                 syn::Type::Path(path) => path,
                 _ => unreachable!("the return type is a signature, we can retrieve a path; qed"),
             };
 
-            quote! {
-                // the harness nodes speak Candid
-                let payload = response.body;
-                ::candid::Decode!(&payload, #type_path).expect("the response should implement CandidType; qed")
-            }
+            (
+                quote!(#type_path),
+                quote!(::candid::Decode!(&response.body, #type_path)
+                    .expect("the response should implement CandidType; qed")),
+            )
         }
 
-        ReturnType::Default => quote! {},
+        ReturnType::Default => (quote!(()), quote!()),
     };
 
     Ok(TokenStream::from(quote! {
         #[update]
-        async fn #ident(#(#inputs),*) #output {
-            let device_url =  StateAccessor::get_next_device();
+        async fn #ident(#(#inputs),*) -> harness_primitives::HarnessResult<#output> {
+            let device_url = match StateAccessor::get_next_device() {
+                Ok(url) => url,
+                Err(e) => return harness_primitives::HarnessResult::<#output>::wrap_error(e),
+            };
+
             let program_id: String = StateAccessor::get_program_id().into();
 
             // TODO: research and tweak the context for maximal cost efficiency
@@ -85,14 +88,15 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
             match http_request(request, 10_000_000_000).await {
                 Ok((response,)) => {
                     // make sure the response is ok status
-                    if response.status !=  ::candid::Nat::from(200u8) {
-                        panic!("The http_request resulted into error. \nStatus code: {}\nBody: `{:?}`", response.status, response.body);
+                    if response.status != ::candid::Nat::from(200u8) {
+                        return harness_primitives::HarnessResult::<#output>::wrap_error_str(&format!("The http_request resulted into error. \nStatus code: {}\nBody: `{:?}`",
+                            response.status, response.body));
                     }
 
-                    #decode_ret
+                    harness_primitives::HarnessResult::wrap_success(#decode_ret)
                 }
                 Err((r, m)) => {
-                    panic!("The http_request resulted into error. RejectionCode: {r:?}, Error: {m}");
+                    harness_primitives::HarnessResult::<#output>::wrap_error_str(&format!("The http_request resulted into error. RejectionCode: {r:?}, Error: {m}"))
                 }
             }
         }

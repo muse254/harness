@@ -1,19 +1,15 @@
 #![cfg(feature = "wasm-ext")]
-
 //! The Harness OS is the system that manages harness programs on the device. It is responsible for loading, unloading, and executing programs.
 use std::collections::HashMap;
 
-use wapc::WapcHost;
+use wapc::WapcHostAsync;
 
 use crate::error::{Error, Result};
 use crate::program::ProgramId;
 
 /// Holds all the harness programs that have been loaded to the device.
-///
-/// @muse254 See: <https://github.com/WebAssembly/wasi-threads>
-/// make replications of the WasmHost & use shared memory buffer?
 #[derive(Default)]
-pub struct HarnessOs(HashMap<ProgramId, WapcHost>);
+pub struct HarnessOs(HashMap<ProgramId, WapcHostAsync>);
 
 impl HarnessOs {
     /// This is responsible for instantiating the host process needed to load the program
@@ -22,15 +18,10 @@ impl HarnessOs {
             .module_bytes(program)
             .build()?;
 
-        let host_instance = WapcHost::new(
-            Box::new(engine),
-            Some(Box::new(move |_a, _b, _c, _d, _e| Ok(vec![]))), // todo?
-        )?;
-
-        let mut harness_os = HashMap::new();
-        harness_os.insert(program_id, host_instance);
-
-        Ok(Self(harness_os))
+        Ok(Self(HashMap::from([(
+            program_id,
+            WapcHostAsync::new(Box::new(engine), None)?,
+        )])))
     }
 
     /// Returns the list of program identifiers that are currently loaded in the device.
@@ -61,12 +52,9 @@ impl HarnessOs {
             .module_bytes(program)
             .build()?;
 
-        let host_instance = WapcHost::new(
-            Box::new(engine),
-            Some(Box::new(move |_a, _b, _c, _d, _e| Ok(vec![]))), // todo?
-        )?;
-
-        _ = self.0.insert(program_id, host_instance);
+        _ = self
+            .0
+            .insert(program_id, WapcHostAsync::new(Box::new(engine), None)?);
         Ok(())
     }
 

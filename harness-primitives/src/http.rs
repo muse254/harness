@@ -4,6 +4,7 @@ use std::{collections::HashMap, io::Cursor};
 
 use candid::{CandidType, Deserialize};
 
+use serde::Serialize;
 #[cfg(feature = "wasm-ext")]
 use tokio::io::{
     AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt,
@@ -26,6 +27,14 @@ pub struct Request {
     pub path: String,
     pub headers: Vec<HeaderField>,
     pub data: Vec<u8>,
+}
+
+/// This is the payload to the harness node to poll an IC canister from the IC network.
+#[derive(Serialize, Deserialize)]
+pub struct PullProgram {
+    pub canister_id: String,
+    pub program_id: String,
+    pub url: String,
 }
 
 #[cfg(feature = "wasm-ext")]
