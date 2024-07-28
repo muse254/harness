@@ -89,10 +89,10 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                 Ok((response,)) => {
                     // make sure the response is ok status
                     if response.status != ::candid::Nat::from(200u8) {
-                        return harness_primitives::HarnessResult::<#output>::wrap_error_str(&format!("The http_request resulted into error. \nStatus code: {}\nBody: `{:?}`", 
+                        return harness_primitives::HarnessResult::<#output>::wrap_error_str(&format!("The http_request resulted into error. \nStatus code: {}\nBody: `{:?}`",
                             response.status, response.body));
                     }
-                    
+
                     harness_primitives::HarnessResult::wrap_success(#decode_ret)
                 }
                 Err((r, m)) => {
