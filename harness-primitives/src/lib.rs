@@ -4,7 +4,6 @@ pub mod harness_os;
 pub mod http;
 pub mod internals;
 pub mod program;
-pub mod wapc_rewrites;
 
 #[cfg(feature = "wasm-ext")]
 pub use harness_os::HarnessOs;

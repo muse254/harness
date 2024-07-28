@@ -2,6 +2,7 @@
 use std::io::Cursor;
 
 use ic_agent::{export::Principal, Agent};
+use tokio::sync::Mutex;
 
 use harness_primitives::{
     error::{Error, Result},
@@ -10,12 +11,13 @@ use harness_primitives::{
 };
 
 #[derive(Default)]
-pub struct NodeServer<'a> {
-    pub harness_os: HarnessOs<'a>,
+pub struct NodeServer {
+    harness_os: HarnessOs,
+    lock_: Mutex<()>,
 }
 
-impl<'a> NodeServer<'a> {
-    pub async fn handler(&mut self, req: Request) -> Result<Response<Cursor<Vec<u8>>>> {
+impl NodeServer {
+    pub(crate) async fn handler(&mut self, req: Request) -> Result<Response<Cursor<Vec<u8>>>> {
         match (Method::try_from(req.method.as_str())?, req.path.as_str()) {
             (Method::GET, "/hello") => Ok(Response::hello()),
 
@@ -44,13 +46,13 @@ impl<'a> NodeServer<'a> {
                     let effective_canister_id =
                         Principal::from_text(harness_canister.canister_id).unwrap();
                     let response = agent
-                        .query(&effective_canister_id, "account_balance")
+                        .query(&effective_canister_id, "get_program_code")
                         .await
                         .unwrap();
 
+                    let _unused = self.lock_.lock().await;
                     self.harness_os
-                        .add_program(harness_canister.program_id.parse()?, &response)
-                        .await?;
+                        .add_program(harness_canister.program_id.parse()?, &response)?;
                 }
 
                 Ok(Response {
@@ -87,10 +89,10 @@ impl<'a> NodeServer<'a> {
                     }
                 };
 
+                let _unused = self.lock_.lock().await;
                 match self
                     .harness_os
                     .call_operation(&program_id.parse()?, &procedure, &req.data)
-                    .await
                 {
                     Ok(res) => Ok(Response {
                         status_code: 200,
@@ -115,6 +117,7 @@ impl<'a> NodeServer<'a> {
                         inner: None,
                     })?;
 
+                let _unused = self.lock_.lock().await;
                 self.harness_os.remove_program(&program_id.parse()?);
 
                 Ok(Response {

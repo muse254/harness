@@ -1,29 +1,26 @@
 #![cfg(feature = "wasm-ext")]
-
 //! The Harness OS is the system that manages harness programs on the device. It is responsible for loading, unloading, and executing programs.
 use std::collections::HashMap;
 
+use wapc::WapcHostAsync;
+
 use crate::error::{Error, Result};
 use crate::program::ProgramId;
-use crate::wapc_rewrites::WapcHost;
 
 /// Holds all the harness programs that have been loaded to the device.
-///
-/// @muse254 See: <https://github.com/WebAssembly/wasi-threads>
-/// make replications of the WasmHost & use shared memory buffer?
 #[derive(Default)]
-pub struct HarnessOs<'a>(HashMap<ProgramId, WapcHost<'a>>);
+pub struct HarnessOs(HashMap<ProgramId, WapcHostAsync>);
 
-impl<'a> HarnessOs<'a> {
+impl HarnessOs {
     /// This is responsible for instantiating the host process needed to load the program
-    pub async fn new(program_id: ProgramId, program: &[u8]) -> Result<Self> {
+    pub fn new(program_id: ProgramId, program: &[u8]) -> Result<Self> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
             .module_bytes(program)
             .build()?;
 
         Ok(Self(HashMap::from([(
             program_id,
-            WapcHost::new(engine).await?,
+            WapcHostAsync::new(Box::new(engine), None)?,
         )])))
     }
 
@@ -34,14 +31,14 @@ impl<'a> HarnessOs<'a> {
 
     /// This calls the operation and returns the result or appropriate errors to the caller.
     /// Note that serde to/from bytes is done inherently in the compiled program which uses candid
-    pub async fn call_operation(
+    pub fn call_operation(
         &self,
         program_id: &ProgramId,
         operation: &str,
         payload: &[u8],
     ) -> Result<Vec<u8>> {
         match self.0.get(program_id) {
-            Some(program) => Ok(program.call(operation, payload).await?),
+            Some(program) => Ok(program.call(operation, payload)?),
             None => Err(Error::Internal {
                 message: "the program could not be found".to_string(),
                 inner: None,
@@ -50,12 +47,14 @@ impl<'a> HarnessOs<'a> {
     }
 
     /// Adds a new program to the device.
-    pub async fn add_program(&mut self, program_id: ProgramId, program: &[u8]) -> Result<()> {
+    pub fn add_program(&mut self, program_id: ProgramId, program: &[u8]) -> Result<()> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
             .module_bytes(program)
             .build()?;
 
-        _ = self.0.insert(program_id, WapcHost::new(engine).await?);
+        _ = self
+            .0
+            .insert(program_id, WapcHostAsync::new(Box::new(engine), None)?);
         Ok(())
     }
 

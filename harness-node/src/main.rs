@@ -1,19 +1,18 @@
+mod network;
+use network::NodeServer;
+
 use std::net::{Ipv4Addr, SocketAddrV4};
 
 use tokio::{io::BufStream, net::TcpListener};
 
-use harness_primitives::{error::Error, http::parse_request, HarnessOs};
-
-mod network;
+use harness_primitives::{error::Error, http::parse_request};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let (port, listener) = start_server().await?;
     println!("connect on port '{port}'"); // todo: do telemetry properly
 
-    let mut server = network::NodeServer {
-        harness_os: HarnessOs::default(),
-    };
+    let mut server = NodeServer::default();
 
     loop {
         let (stream, _) = listener.accept().await?;

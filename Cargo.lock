@@ -1292,9 +1292,9 @@ dependencies = [
  "serde_json",
  "tokio",
  "url",
- "wapc",
+ "wapc 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wapc-codec",
- "wasmtime-provider",
+ "wasmtime-provider 1.19.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1312,8 +1312,8 @@ dependencies = [
  "syn 2.0.72",
  "thiserror",
  "tokio",
- "wapc",
- "wasmtime-provider",
+ "wapc 1.1.0 (git+https://github.com/muse254/wapc-rs.git?branch=feat/async-context)",
+ "wasmtime-provider 1.19.1 (git+https://github.com/muse254/wapc-rs.git?branch=feat/async-context)",
 ]
 
 [[package]]
@@ -3505,6 +3505,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wapc"
+version = "1.1.0"
+source = "git+https://github.com/muse254/wapc-rs.git?branch=feat/async-context#05aa28446b2d01f71d68bb8eeff608148f88c492"
+dependencies = [
+ "async-trait",
+ "log",
+ "parking_lot",
+ "thiserror",
+]
+
+[[package]]
 name = "wapc-codec"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3883,7 +3894,24 @@ dependencies = [
  "parking_lot",
  "serde",
  "thiserror",
- "wapc",
+ "wapc 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasi-common",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "wasmtime-provider"
+version = "1.19.1"
+source = "git+https://github.com/muse254/wapc-rs.git?branch=feat/async-context#05aa28446b2d01f71d68bb8eeff608148f88c492"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "log",
+ "parking_lot",
+ "serde",
+ "thiserror",
+ "wapc 1.1.0 (git+https://github.com/muse254/wapc-rs.git?branch=feat/async-context)",
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
