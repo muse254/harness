@@ -27,7 +27,7 @@ impl IcpAgent for IcpAgentMock {
 #[test]
 fn test_hello() {
     let program_id = "hello".parse::<ProgramId>().unwrap();
-    let harness_os = HarnessOs::new("hello".parse().unwrap(), &HELLO_BIN).unwrap();
+    let harness_os = HarnessOs::new("hello".parse().unwrap(), HELLO_BIN).unwrap();
     let result = harness_os
         .call_operation(
             &program_id,

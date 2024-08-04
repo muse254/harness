@@ -1,7 +1,11 @@
+
+
 <div align="center">
 	<img width="256" src="assets/magneto-bw.svg" alt="Harness logo">
 
 # Harness
+
+![Tests & Linting](https://github.com/github/docs/actions/workflows/quality-gate.yml/badge.svg)
 
 </div>
 

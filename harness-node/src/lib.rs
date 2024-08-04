@@ -20,7 +20,10 @@ pub struct NodeServer<T: IcpAgent> {
     icp_agent: T,
 }
 
-pub fn new_node_server<T: IcpAgent>(agent: T) -> NodeServer<T> {
+pub fn new_node_server<T>(agent: T) -> NodeServer<T>
+where
+    T: IcpAgent + Send,
+{
     NodeServer {
         harness_os: HarnessOs::default(),
         lock_: Mutex::new(()),

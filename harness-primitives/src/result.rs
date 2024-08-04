@@ -6,7 +6,10 @@ use candid::CandidType;
 /// The data is generic depending on the return type of the operation called, we know the type
 /// must implement the CandidType trait.
 #[derive(CandidType)]
-pub struct HarnessResult<T: CandidType> {
+pub struct HarnessResult<T>
+where
+    T: CandidType,
+{
     pub error: String,
     pub success: bool,
     pub data: Option<T>,
