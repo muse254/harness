@@ -4,6 +4,7 @@ use std::cell::{Cell, RefCell};
 use harness_macros::{get_binary__, get_schema};
 use harness_primitives::{
     error::{Error, Result},
+    internals::Schema,
     program::{Program, ProgramId},
 };
 
@@ -71,5 +72,9 @@ impl StateAccessor {
                 devices.remove(idx);
             }
         });
+    }
+
+    pub fn get_schema() -> Schema {
+        ARBITER.with(|arbiter| arbiter.borrow().program.schema.clone())
     }
 }

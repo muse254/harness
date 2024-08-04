@@ -56,6 +56,12 @@ macro_rules! harness_export {
             StateAccessor::remove_device(url)
         }
 
+        #[cfg(not(feature = "__harness-build"))]
+        #[query]
+        fn get_schema() -> harness_primitives::internals::Schema {
+            StateAccessor::get_schema()
+        }
+
         // Copied over from example `send_http_post_rust`
         // Strips all data that is not needed from the original response.
         #[cfg(not(feature = "__harness-build"))]

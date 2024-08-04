@@ -102,8 +102,8 @@ Now that everything is set up, we can start interacting with our system.
 
 ```mermaid
     graph TD;
-    Client --> 
-    ApplicationCanister --> DeviceA;
-    ApplicationCanister --> DeviceB;
-    ApplicationCanister --> DeviceC;
+    Client <--> 
+    ApplicationCanister <--> DeviceA;
+    ApplicationCanister <--> DeviceB;
+    ApplicationCanister <--> DeviceC;
 ```

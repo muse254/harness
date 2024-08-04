@@ -5,10 +5,13 @@ type HttpResponse = record {
   body : blob;
   headers : vec HttpHeader;
 };
+type Schema = record { version : text; services : vec Service; program : text };
+type Service = record { args : vec text; name : text; rets : text };
 type TransformArgs = record { context : blob; response : HttpResponse };
 service : {
   get_devices : () -> (vec text) query;
   get_program_code : () -> (blob) query;
+  get_schema : () -> (Schema) query;
   harness_transform : (TransformArgs) -> (HttpResponse) query;
   hello : (text) -> (HarnessResult);
   register_device : (text) -> ();
