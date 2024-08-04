@@ -88,6 +88,8 @@ async fn test_with_node_impl() {
         let mut buf = Vec::new();
         data.read_to_end(&mut buf).unwrap();
 
+        println!("{:?}", buf);
+
         // response should be "Hello, World!"
         assert_eq!(Decode!(&buf, String).unwrap(), "Hello, World!");
     }

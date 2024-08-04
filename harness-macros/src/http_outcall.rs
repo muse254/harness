@@ -36,8 +36,14 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
 
             (
                 quote!(#type_path),
-                quote!(::candid::Decode!(&response.body, #type_path)
-                    .expect("the response should implement CandidType; qed")),
+                quote! {
+                    {
+                        // truncate first two bytes; fixme: insidious checkout reason
+                        let resp = &response.body[2..];
+                        ::candid::Decode!(&resp, #type_path)
+                        .expect("the response should implement CandidType; qed")
+                    }
+                },
             )
         }
 
