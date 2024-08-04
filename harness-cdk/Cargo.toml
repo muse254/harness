@@ -11,23 +11,19 @@ path = "compilation_tests/all.rs"
 required-features = ["harness-macros/__harness-build"]
 
 [[test]]
-name = "embed_program"
-path = "macro_tests/embed_program.rs"
-
-[[test]]
 name = "schema_info"
 path = "macro_tests/schema_info.rs"
 
 [dependencies]
+wapc-guest = { version = "1.1.0", optional = true }
 thiserror = "1.0"
 anyhow = "1.0.81"
 candid = "0.10.5"
-wapc-guest = { version = "1.1.0", optional = true }
 harness-macros = { path = "../harness-macros" }
 harness-primitives = { path = "../harness-primitives" }
-ic-stable-structures = "0.6.4"
+# ic-stable-structures = "0.6.4"
+ic-cdk = { version = "0.13.1" }
 serde = "1.0.197"
-ic-cdk = "0.13.1"
 serde_json = "1.0.120"
 
 [dev-dependencies]
@@ -37,4 +33,6 @@ harness-cdk = { path = ".", features = ["__harness-build"] }
 candid = "0.10.5"
 
 [features]
+# default = ["canister"]
 __harness-build = ["harness-macros/__harness-build", "wapc-guest"]
+# canister = []

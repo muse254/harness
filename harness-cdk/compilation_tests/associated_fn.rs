@@ -1,4 +1,4 @@
-use harness_cdk::harness;
+use harness_cdk::prelude::*;
 
 struct Unit;
 

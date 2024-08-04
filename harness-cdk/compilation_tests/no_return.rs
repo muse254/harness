@@ -1,4 +1,5 @@
-use harness_cdk::{harness, harness_export};
+use candid::{Decode, Encode};
+use harness_cdk::prelude::*;
 
 #[harness]
 fn hi(name: String) {

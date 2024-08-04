@@ -1,8 +1,16 @@
 use candid::CandidType;
+use serde::Deserialize;
 
 /// A result type from a call to the harness canister. It contains the error message if any on error and
 /// the data returned from the call if successful.
-pub struct HarnessResult<T: CandidType> {
+///
+/// The data is generic depending on the return type of the operation called, we know the type
+/// must implement the CandidType trait.
+#[derive(CandidType, Deserialize)]
+pub struct HarnessResult<T>
+where
+    T: CandidType,
+{
     pub error: String,
     pub success: bool,
     pub data: Option<T>,

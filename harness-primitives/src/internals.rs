@@ -1,11 +1,13 @@
 //! This module contains the internal data structures used by the harness sdk, and are not intended to be used directly by the crate consumer.
+use candid::CandidType;
 use proc_macro2::TokenStream;
+use serde::{Deserialize, Serialize};
 
 /// This is the schema for a harness program, it is not intended to be used directly by the crate
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
 /// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, CandidType)]
 pub struct Schema {
     pub version: String,
     pub program: String,
@@ -58,7 +60,7 @@ impl From<Schema> for IntermediateSchema {
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
 /// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, CandidType)]
 pub struct Service {
     pub name: String,
     pub args: Vec<String>,

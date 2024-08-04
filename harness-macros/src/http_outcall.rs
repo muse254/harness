@@ -4,7 +4,7 @@ use syn::{Error, ItemFn, ReturnType};
 
 pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
     let ident = &func.sig.ident;
-    let base_name = format!("__harness_{ident}");
+    let procedure = ident.to_string();
 
     let mut inputs = Vec::new();
     let mut args = Vec::new();
@@ -36,8 +36,14 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
 
             (
                 quote!(#type_path),
-                quote!(::candid::Decode!(&response.body, #type_path)
-                    .expect("the response should implement CandidType; qed")),
+                quote! {
+                    {
+                        // truncate first two bytes; fixme: insidious checkout reason
+                        let resp = &response.body[2..];
+                        ::candid::Decode!(&resp, #type_path)
+                        .expect("the response should implement CandidType; qed")
+                    }
+                },
             )
         }
 
@@ -73,7 +79,7 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                     },
                     HttpHeader {
                         name: harness_primitives::http::Header::ProgramProc.to_string(),
-                        value: String::from(#base_name),
+                        value: String::from(#procedure),
                     },
                 ],
                 body,
@@ -89,8 +95,9 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                 Ok((response,)) => {
                     // make sure the response is ok status
                     if response.status != ::candid::Nat::from(200u8) {
-                        return harness_primitives::HarnessResult::<#output>::wrap_error_str(&format!("The http_request resulted into error. \nStatus code: {}\nBody: `{:?}`",
-                            response.status, response.body));
+                        let body = serde_json::to_string(&response.body).unwrap_or(String::from_utf8_lossy(&response.body).to_string());
+                        return harness_primitives::HarnessResult::<#output>::wrap_error_str(&format!("The http_request resulted into error. \nStatus code: {}\nBody: `{}`",
+                            response.status, body));
                     }
 
                     harness_primitives::HarnessResult::wrap_success(#decode_ret)

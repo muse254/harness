@@ -25,4 +25,4 @@ candid-extractor $TARGET/wasm32-unknown-unknown/release/hello.wasm > ./src/hello
 # using dfx we can now try deploy on out local network
 dfx stop
 dfx start --clean --background
-dfx deploy hello -y
+dfx deploy hello --upgrade-unchanged -y
