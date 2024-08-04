@@ -1,9 +1,11 @@
 use std::{
+    future::Future,
     io::Cursor,
     net::{Ipv4Addr, SocketAddrV4},
 };
 
-use ic_agent::{export::Principal, Agent};
+use candid::Decode;
+use ic_agent::{export::Principal, Agent, AgentError};
 use tokio::{net::TcpListener, sync::Mutex};
 
 use harness_primitives::{
@@ -12,13 +14,55 @@ use harness_primitives::{
     HarnessOs,
 };
 
-#[derive(Default)]
-pub struct NodeServer {
+pub struct NodeServer<T: IcpAgent> {
     harness_os: HarnessOs,
     lock_: Mutex<()>,
+    icp_agent: T,
 }
 
-impl NodeServer {
+pub fn new_node_server<T: IcpAgent>(agent: T) -> NodeServer<T> {
+    NodeServer {
+        harness_os: HarnessOs::default(),
+        lock_: Mutex::new(()),
+        icp_agent: agent,
+    }
+}
+
+/// This is the interface for the ICP agent that is used to poll the IC canister.
+pub trait IcpAgent {
+    fn get_program_code(
+        &self,
+        canister_id: &str,
+        icp_url: &str,
+    ) -> impl Future<Output = core::result::Result<Vec<u8>, AgentError>>;
+}
+
+/// This is the implementation of the ICP agent.
+pub struct IcpAgentImpl;
+
+impl IcpAgent for IcpAgentImpl {
+    async fn get_program_code(
+        &self,
+        canister_id: &str,
+        icp_url: &str,
+    ) -> core::result::Result<Vec<u8>, AgentError> {
+        let agent = Agent::builder().with_url(icp_url).build().unwrap();
+        agent.fetch_root_key().await?;
+
+        let response = agent
+            .query(
+                &Principal::from_text(canister_id).unwrap(),
+                "get_program_code",
+            )
+            .with_arg(candid::encode_one(()).unwrap())
+            .call()
+            .await?;
+
+        Ok(Decode!(&response, Vec<u8>).unwrap())
+    }
+}
+
+impl<T: IcpAgent> NodeServer<T> {
     pub async fn handler(&mut self, req: Request) -> HarnessResult<Response<Cursor<Vec<u8>>>> {
         match (Method::try_from(req.method.as_str())?, req.path.as_str()) {
             (Method::GET, "/hello") => Ok(Response::hello()),
@@ -36,19 +80,14 @@ impl NodeServer {
                     }
                 };
 
-                let agent = Agent::builder().with_url(program.url).build().unwrap();
-                agent.fetch_root_key().await.unwrap();
-
-                // get the program code, calling the IC canister
-                let response = agent
-                    .query(
-                        &Principal::from_text(program.canister_id).unwrap(),
-                        "get_program_code",
-                    )
+                let response = self
+                    .icp_agent
+                    .get_program_code(&program.canister_id, &program.url)
                     .await
                     .unwrap();
 
                 let _unused = self.lock_.lock().await;
+
                 self.harness_os
                     .add_program(program.program_id.parse()?, &response)?;
 
@@ -60,6 +99,8 @@ impl NodeServer {
             }
 
             (Method::POST, "/procedure") => {
+                println!("Headers: {:?}", req.headers);
+
                 let program_id = match get_header(&Header::ProgramId.to_string(), &req.headers) {
                     Some(program_id) => program_id,
                     None => {
@@ -69,9 +110,11 @@ impl NodeServer {
                                 "Program-Identifier header could not be retrieved".into(),
                             ),
                             headers: vec![],
-                        })
+                        });
                     }
                 };
+
+                let program_id = program_id.trim().to_string();
 
                 let procedure = match get_header(&Header::ProgramProc.to_string(), &req.headers) {
                     Some(procedure) => procedure,
@@ -87,10 +130,14 @@ impl NodeServer {
                 };
 
                 let _unused = self.lock_.lock().await;
-                match self
-                    .harness_os
-                    .call_operation(&program_id.parse()?, &procedure, &req.data)
-                {
+
+                println!("Program-ids: {:?}", self.harness_os.program_ids());
+
+                match self.harness_os.call_operation(
+                    &program_id.parse()?,
+                    procedure.trim(),
+                    &req.data,
+                ) {
                     Ok(res) => Ok(Response {
                         status_code: 200,
                         data: Cursor::new(res),
@@ -150,3 +197,8 @@ pub async fn start_server() -> HarnessResult<(u16, TcpListener)> {
 
     Ok((port, listener))
 }
+
+// curl --header "Content-Type: application/json" \
+//  --request POST \
+//  --data '{"canister_id":"bkyz2-fmaaa-aaaaa-qaaaq-cai","program_id":"hello","url":"http://localhost:59258"}' \
+//   http://localhost:8080/program

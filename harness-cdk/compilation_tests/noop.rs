@@ -1,4 +1,5 @@
-use harness_cdk::{harness, harness_export, Encode};
+use candid::Encode;
+use harness_cdk::prelude::*;
 
 #[harness]
 fn noop() {}

@@ -14,8 +14,19 @@ use harness_primitives::{
 
 mod http_outcall;
 
-// `wapc_init` is reserved by the wapc protocol used in the project.
-const RESERVED_METHODS: [&str; 2] = ["wapc_init", "register_function"];
+/// Reserved method names that cannot be used as harness functions.
+const RESERVED_METHODS: [&str; 5] = [
+    // `wapc_init` is reserved by the wapc protocol used in the project.
+    "wapc_init",
+    // `register_function` is public API for registering harness nodes.
+    "register_function",
+    // `get_program_code` is a public API for getting the embedded harness program.
+    "get_program_code",
+    // `get_devices` is a public API for getting the list of devices registered with the arbiter.
+    "get_devices",
+    // `remove_device` is a public API for registering devices to the arbiter.
+    "register_device",
+];
 
 // This type maps the vanilla function name to the harness function name.
 // (vanilla_function_name, harness_function_name)
@@ -38,7 +49,8 @@ lazy_static::lazy_static! {
 ///
 /// # Example
 ///
-/// ```
+/// ``` ignore
+/// use candid::{Encode, Decode};
 /// use harness_cdk::prelude::*;
 ///
 /// #[harness]
