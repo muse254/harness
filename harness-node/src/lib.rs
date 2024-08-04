@@ -200,8 +200,3 @@ pub async fn start_server() -> HarnessResult<(u16, TcpListener)> {
 
     Ok((port, listener))
 }
-
-// curl --header "Content-Type: application/json" \
-//  --request POST \
-//  --data '{"canister_id":"bkyz2-fmaaa-aaaaa-qaaaq-cai","program_id":"hello","url":"http://localhost:59258"}' \
-//   http://localhost:8080/program
