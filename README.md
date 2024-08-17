@@ -1,13 +1,14 @@
-
-
 <div align="center">
 	<img width="256" src="assets/magneto-bw.svg" alt="Harness logo">
 
 # Harness
 
-![Tests & Linting](https://github.com/github/docs/actions/workflows/quality-gate.yml/badge.svg)
-
 </div>
+
+[![Apache 2.0 licensed][license]][license-url]
+
+[license]: https://img.shields.io/github/license/muse254/harness
+[license-url]: https://github.com/muse254/harness/blob/main/LICENSE-APACHE
 
 This framework allows for an IC canister to be piggybacked on IoT devices for:
 
@@ -100,10 +101,46 @@ Now that everything is set up, we can start interacting with our system.
 
 ## Structure of the System
 
+### Diagrammatic representation
+
+Below is the diagrammatic representation of the Harness system:
+
 ```mermaid
-    graph TD;
-    Client <--> 
-    ApplicationCanister <--> DeviceA;
-    ApplicationCanister <--> DeviceB;
-    ApplicationCanister <--> DeviceC;
+graph TD;
+  A[Caller from the Internet] <-->|Canister query| B((ICP Canister))
+  subgraph B[ICP Canister]
+    E[Static App Binary]
+  end
+  B <--> |httpOutcall| C[Harness Node]
+  subgraph C[Harness Node]
+    D[Loaded App Binary]
+    F[IO] <-->|waPC call| D
+  end
+```
+
+### Sequence diagram
+
+Below is the sequence diagram of the Harness system:
+
+```mermaid
+sequenceDiagram
+    participant C as Harness Node
+    participant B as ICP Canister
+    participant E as Static App Binary
+    participant D as Loaded App Binary
+    participant A as Caller from the Internet
+
+    C ->> B: Query Canister to load Application Binary
+    B ->> E: Access Static App Binary
+    B ->> C: Return Application Binary
+    C ->> D: Load Application Binary
+
+    C ->> B: Provide URL of Harness Node
+
+    A ->> B: Canister query
+    B ->> C: httpOutcall to Harness Node
+    C ->> D: Invoke the Binary(waPC call)
+    D ->> C: Invocation Result(waPC response)
+    C ->> B: httpOutcall response
+    B ->> A: Response to Caller
 ```
