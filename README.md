@@ -5,7 +5,11 @@
 
 # Harness
 
-![Tests & Linting](https://github.com/github/docs/actions/workflows/quality-gate.yml/badge.svg)
+[![Apache 2.0 licensed][license]][LICENSE-APACHE]
+[![MIT license][license]][LICENSE-MIT]
+[![Rust][badge-rust]][Rust]
+[![Build Status][badge-ci]][CI]
+[!Tests & Linting](https://github.com/github/docs/actions/workflows/quality-gate.yml/badge.svg)
 
 </div>
 
