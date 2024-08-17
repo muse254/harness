@@ -24,16 +24,19 @@ impl IcpAgent for IcpAgentMock {
     }
 }
 
-#[test]
-fn test_hello() {
+#[tokio::test]
+async fn test_hello() {
     let program_id = "hello".parse::<ProgramId>().unwrap();
-    let harness_os = HarnessOs::new("hello".parse().unwrap(), HELLO_BIN).unwrap();
+    let harness_os = HarnessOs::new("hello".parse().unwrap(), HELLO_BIN)
+        .await
+        .unwrap();
     let result = harness_os
         .call_operation(
             &program_id,
             "hello",
             &Encode!(&String::from("World")).unwrap(),
         )
+        .await
         .unwrap();
 
     assert_eq!(Decode!(&result, String).unwrap(), "Hello, World!");

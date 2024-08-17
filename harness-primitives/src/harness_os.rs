@@ -13,14 +13,14 @@ pub struct HarnessOs(HashMap<ProgramId, WapcHostAsync>);
 
 impl HarnessOs {
     /// This is responsible for instantiating the host process needed to load the program
-    pub fn new(program_id: ProgramId, program: &[u8]) -> Result<Self> {
+    pub async fn new(program_id: ProgramId, program: &[u8]) -> Result<Self> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
             .module_bytes(program)
-            .build()?;
+            .build_async()?;
 
         Ok(Self(HashMap::from([(
             program_id,
-            WapcHostAsync::new(Box::new(engine), None)?,
+            WapcHostAsync::new(Box::new(engine), None).await?,
         )])))
     }
 
@@ -31,14 +31,14 @@ impl HarnessOs {
 
     /// This calls the operation and returns the result or appropriate errors to the caller.
     /// Note that serde to/from bytes is done inherently in the compiled program which uses candid
-    pub fn call_operation(
+    pub async fn call_operation(
         &self,
         program_id: &ProgramId,
         operation: &str,
         payload: &[u8],
     ) -> Result<Vec<u8>> {
         match self.0.get(program_id) {
-            Some(program) => Ok(program.call(operation, payload)?),
+            Some(program) => Ok(program.call(operation, payload).await?),
             None => Err(Error::Internal {
                 message: "the program could not be found".to_string(),
                 inner: None,
@@ -47,14 +47,15 @@ impl HarnessOs {
     }
 
     /// Adds a new program to the device.
-    pub fn add_program(&mut self, program_id: ProgramId, program: &[u8]) -> Result<()> {
+    pub async fn add_program(&mut self, program_id: ProgramId, program: &[u8]) -> Result<()> {
         let engine = wasmtime_provider::WasmtimeEngineProviderBuilder::new()
             .module_bytes(program)
-            .build()?;
+            .build_async()?;
 
-        _ = self
-            .0
-            .insert(program_id, WapcHostAsync::new(Box::new(engine), None)?);
+        _ = self.0.insert(
+            program_id,
+            WapcHostAsync::new(Box::new(engine), None).await?,
+        );
         Ok(())
     }
 
