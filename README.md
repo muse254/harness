@@ -1,17 +1,14 @@
-
-
 <div align="center">
 	<img width="256" src="assets/magneto-bw.svg" alt="Harness logo">
 
 # Harness
 
-[![Apache 2.0 licensed][license]][LICENSE-APACHE]
-[![MIT license][license]][LICENSE-MIT]
-[![Rust][badge-rust]][Rust]
-[![Build Status][badge-ci]][CI]
-[!Tests & Linting](https://github.com/github/docs/actions/workflows/quality-gate.yml/badge.svg)
-
 </div>
+
+[![Apache 2.0 licensed][license]][license-url]
+
+[license]: https://img.shields.io/github/license/muse254/harness
+[license-url]: https://github.com/muse254/harness/blob/main/LICENSE-APACHE
 
 This framework allows for an IC canister to be piggybacked on IoT devices for:
 
