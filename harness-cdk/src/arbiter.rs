@@ -21,7 +21,7 @@ thread_local! {
     #[allow(clippy::large_stack_frames)]
     static ARBITER: RefCell<Arbiter> = RefCell::new( Arbiter {
         devices: Vec::new(),
-        program: Program { schema: get_schema!(), wasm: get_binary__!() },
+        program: Program { schema: populate_schema(), wasm: get_binary__!() },
     });
 }
 
@@ -77,4 +77,13 @@ impl StateAccessor {
     pub fn get_schema() -> Schema {
         ARBITER.with(|arbiter| arbiter.borrow().program.schema.clone())
     }
+}
+
+fn populate_schema() -> Schema {
+    let mut schema = get_schema!();
+    schema.version =
+        std::env::var("CARGO_PKG_VERSION").expect("expected CARGO_PKG_VERSION to be set; qed");
+    schema.program =
+        std::env::var("CARGO_PKG_NAME").expect("expected CARGO_PKG_NAME to be set; qed");
+    schema
 }

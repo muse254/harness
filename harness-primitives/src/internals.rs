@@ -23,10 +23,8 @@ impl Default for Schema {
 impl Schema {
     pub fn new() -> Self {
         Self {
-            version: std::env::var("CARGO_PKG_VERSION")
-                .expect("expected CARGO_PKG_VERSION to be set; qed"),
-            program: std::env::var("CARGO_PKG_NAME")
-                .expect("expected CARGO_PKG_NAME to be set; qed"),
+            version: "-".to_string(),
+            program: "-".to_string(),
             services: vec![],
         }
     }

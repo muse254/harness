@@ -1,4 +1,5 @@
 mod arbiter;
+mod cost;
 
 pub mod prelude {
     pub use ic_cdk::{

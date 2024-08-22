@@ -38,7 +38,8 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                 quote!(#type_path),
                 quote! {
                     {
-                        // truncate first two bytes; fixme: insidious checkout reason
+                        // Sample: "HTTP/1.1 202\r\nContent-Type: text/plain\r\n\r\nHello, World!"
+                        // trims '\r\n' from the beginning
                         let resp = &response.body[2..];
                         ::candid::Decode!(&resp, #type_path)
                         .expect("the response should implement CandidType; qed")
