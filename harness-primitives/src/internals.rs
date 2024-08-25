@@ -7,29 +7,11 @@ use serde::{Deserialize, Serialize};
 /// consumer, but rather by the `harness` macro to generate the necessary code.
 ///
 /// Ok to access once it's present in the [`Program`](crate::program::Program) struct.
-#[derive(Deserialize, Serialize, Clone, Debug, CandidType)]
+#[derive(Deserialize, Default, Serialize, Clone, Debug, CandidType)]
 pub struct Schema {
     pub version: String,
     pub program: String,
     pub services: Vec<Service>,
-}
-
-impl Default for Schema {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Schema {
-    pub fn new() -> Self {
-        Self {
-            version: std::env::var("CARGO_PKG_VERSION")
-                .expect("expected CARGO_PKG_VERSION to be set; qed"),
-            program: std::env::var("CARGO_PKG_NAME")
-                .expect("expected CARGO_PKG_NAME to be set; qed"),
-            services: vec![],
-        }
-    }
 }
 
 /// This is the intermediate schema that is used to generate the code for the harness program. It

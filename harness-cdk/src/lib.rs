@@ -14,7 +14,7 @@ pub mod prelude {
     #[cfg(feature = "__harness-build")]
     pub use wapc_guest::{self, register_function, CallResult};
 
-    pub use harness_macros::{get_binary__, get_schema, harness, harness_export__};
+    pub use harness_macros::{get_binary__, harness, harness_export__};
     pub use harness_primitives;
 
     pub use crate::arbiter::StateAccessor;
@@ -25,7 +25,6 @@ pub mod prelude {
 #[macro_export]
 macro_rules! harness_export {
     () => {
-        #[cfg(feature = "__harness-build")]
         harness_export__!();
 
         // There is no security done here, research to be done on how to prevent bad actors from registering devices
@@ -54,12 +53,6 @@ macro_rules! harness_export {
         #[update]
         fn remove_device(url: String) {
             StateAccessor::remove_device(url)
-        }
-
-        #[cfg(not(feature = "__harness-build"))]
-        #[query]
-        fn get_schema() -> harness_primitives::internals::Schema {
-            StateAccessor::get_schema()
         }
 
         // Copied over from example `send_http_post_rust`

@@ -105,6 +105,7 @@ impl<T: AsyncRead + Unpin + Send> Response<T> {
             .collect::<Vec<_>>()
             .join("\r\n");
 
+        // https://datatracker.ietf.org/doc/html/rfc2616#section-6
         format!("HTTP/1.1 {}\r\n{headers}\r\n\r\n", self.status_code)
     }
 

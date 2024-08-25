@@ -1,11 +1,10 @@
 //! This is is where the harness program is loaded at compile time, we create the arbiter to arbiter operations of the harness program.
 use std::cell::{Cell, RefCell};
 
-use harness_macros::{get_binary__, get_schema};
+use harness_macros::get_binary__;
 use harness_primitives::{
     error::{Error, Result},
-    internals::Schema,
-    program::{Program, ProgramId},
+    program::Program,
 };
 
 struct Arbiter {
@@ -16,13 +15,13 @@ struct Arbiter {
 }
 
 thread_local! {
-    static NEXT_DEVICE_ID: Cell<usize> = const{ Cell::new(0)};// rudimentary round robin scheduling
+    static NEXT_DEVICE_ID: Cell<usize> = const { Cell::new(0)};// rudimentary round robin scheduling
 
     #[allow(clippy::large_stack_frames)]
-    static ARBITER: RefCell<Arbiter> = RefCell::new( Arbiter {
+    static ARBITER: RefCell<Arbiter> = const { RefCell::new( Arbiter {
         devices: Vec::new(),
-        program: Program { schema: get_schema!(), wasm: get_binary__!() },
-    });
+        program: Program(get_binary__!()),
+    })};
 }
 
 /// This is redirection that does not expose the ARBITER to the user.
@@ -34,11 +33,7 @@ impl StateAccessor {
     }
 
     pub fn get_program_code() -> Vec<u8> {
-        ARBITER.with(|arbiter| arbiter.borrow().program.wasm.to_vec())
-    }
-
-    pub fn get_program_id() -> ProgramId {
-        ARBITER.with(|arbiter| ProgramId::new(arbiter.borrow().program.schema.program.clone()))
+        ARBITER.with(|arbiter| arbiter.borrow().program.0.to_vec())
     }
 
     pub fn get_next_device() -> Result<String> {
@@ -72,9 +67,5 @@ impl StateAccessor {
                 devices.remove(idx);
             }
         });
-    }
-
-    pub fn get_schema() -> Schema {
-        ARBITER.with(|arbiter| arbiter.borrow().program.schema.clone())
     }
 }

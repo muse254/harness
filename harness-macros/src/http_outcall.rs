@@ -1,6 +1,14 @@
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{Error, ItemFn, ReturnType};
+use std::sync::Mutex;
+use syn::{Error, ItemFn, ReturnType, Type};
+
+use harness_primitives::internals::{IntermediateSchema, Schema, Service};
+
+lazy_static::lazy_static! {
+    static ref HARNESS_SCHEMA: Mutex<Schema> = Mutex::new(Schema::default());
+}
 
 pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
     let ident = &func.sig.ident;
@@ -38,7 +46,6 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                 quote!(#type_path),
                 quote! {
                     {
-                        // truncate first two bytes; fixme: insidious checkout reason
                         let resp = &response.body[2..];
                         ::candid::Decode!(&resp, #type_path)
                         .expect("the response should implement CandidType; qed")
@@ -50,6 +57,11 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
         ReturnType::Default => (quote!(()), quote!()),
     };
 
+    let program_name = {
+        let val = std::env::var("CARGO_PKG_NAME").expect("expected CARGO_PKG_NAME to be set; qed");
+        quote!(String::from(#val))
+    };
+
     Ok(TokenStream::from(quote! {
         #[update]
         async fn #ident(#(#inputs),*) -> harness_primitives::HarnessResult<#output> {
@@ -58,7 +70,7 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
                 Err(e) => return harness_primitives::HarnessResult::<#output>::wrap_error(e),
             };
 
-            let program_id: String = StateAccessor::get_program_id().into();
+            let program_id: String = #program_name;
 
             // TODO: research and tweak the context for maximal cost efficiency
             let context = harness_primitives::http::Context {
@@ -108,4 +120,98 @@ pub fn impl_http_outcall(func: ItemFn) -> syn::Result<TokenStream> {
             }
         }
     }))
+}
+
+pub(crate) fn create_fn_schema_entry(
+    ident: &Ident,
+    arg_types: &[Type],
+    ret_types: &[Type],
+) -> syn::Result<()> {
+    match HARNESS_SCHEMA.lock() {
+        Ok(mut schema) => {
+            let args = arg_types.iter().map(|t| quote!(#t).to_string()).collect();
+            let rets = ret_types.iter().map(|t| quote!(#t).to_string()).collect();
+            schema.services.push(Service {
+                name: ident.to_string(),
+                args,
+                rets,
+            });
+
+            Ok(())
+        }
+        Err(e) => Err(syn::Error::new(Span::call_site(), e)),
+    }
+}
+
+pub(crate) fn create_schema_query(_: TokenStream) -> TokenStream {
+    let schema = HARNESS_SCHEMA
+        .lock()
+        .expect("schema has default values")
+        .clone();
+
+    let inter_schema = IntermediateSchema::from(schema);
+    let mut services = Vec::new();
+    for mut service in inter_schema.services {
+        service.args.iter_mut().for_each(|arg| {
+            to_candid_type(arg);
+        });
+        to_candid_type(&mut service.rets);
+
+        let name = service.name;
+        let rets = service.rets;
+        let args = service.args;
+        services.push(quote! {
+            harness_primitives::internals::Service {
+                name: String::from(#name),
+                args: vec![#(#args),*],
+                rets: #rets,
+            }
+        });
+    }
+
+    let version = {
+        let val =
+            std::env::var("CARGO_PKG_VERSION").expect("expected CARGO_PKG_VERSION to be set; qed");
+        quote!(String::from(#val))
+    };
+
+    let program = {
+        let val = std::env::var("CARGO_PKG_NAME").expect("expected CARGO_PKG_NAME to be set; qed");
+        quote!(String::from(#val))
+    };
+
+    TokenStream::from(quote! {
+        #[query]
+        fn get_schema() -> harness_primitives::internals::Schema {
+            harness_primitives::internals::Schema {
+                program: #program,
+                version: #version,
+                services: vec![#(#services),*],
+            }
+        }
+
+        #[query]
+        fn get_program_id() -> harness_primitives::program::ProgramId {
+            get_schema().program.parse::<harness_primitives::program::ProgramId>().unwrap()
+        }
+    })
+}
+
+fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
+    match ty.is_empty() {
+        true => {
+            *ty = quote! {
+                ::candid::types::internal::TypeContainer::new().add::<()>().to_string()
+            }
+        }
+        false => {
+            *ty = {
+                // parse ty as a syn::Type
+                let _ty = syn::parse2::<Type>(ty.clone()).expect("failed to parse type");
+                quote! {
+                    ::candid::types::internal::TypeContainer::new().add::<#ty>().to_string()
+                }
+            }
+        }
+    }
 }

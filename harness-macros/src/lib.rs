@@ -7,10 +7,7 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{Error, ItemFn, Signature, Type};
 
-use harness_primitives::{
-    internals::{IntermediateSchema, Schema, Service},
-    HARNESS_PATH,
-};
+use harness_primitives::HARNESS_PATH;
 
 mod http_outcall;
 
@@ -34,9 +31,7 @@ type FnMap = Vec<(String, String)>;
 
 // FIXME https://github.com/rust-lang/rust/issues/44034
 lazy_static::lazy_static! {
-    static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> =
-    Mutex::new(Some(Vec::new()));
-    static ref HARNESS_SCHEMA: Mutex<Schema> = Mutex::new(Schema::new());
+    static ref HARNESS_FUNCTIONS: Mutex<Option<FnMap>> =  Mutex::new(Some(Vec::new()));
 }
 
 /// This macro is responsible for generating `harness` compatible implementations.
@@ -93,7 +88,9 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let (arg_types, ret_types) = get_args(&func.sig).unwrap();
             if cfg!(not(feature = "__harness-build")) {
                 // populate the schema
-                if let Err(e) = create_fn_schema_entry(&func.sig.ident, &arg_types, &ret_types) {
+                if let Err(e) =
+                    http_outcall::create_fn_schema_entry(&func.sig.ident, &arg_types, &ret_types)
+                {
                     return e.to_compile_error().into();
                 }
 
@@ -121,7 +118,8 @@ pub fn harness(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn harness_export__(input: TokenStream) -> TokenStream {
     if cfg!(not(feature = "__harness-build")) {
-        return TokenStream::from(quote! {});
+        // creating the schema method, all service methods are now registered in the schema
+        return http_outcall::create_schema_query(input);
     }
 
     if !input.is_empty() {
@@ -150,27 +148,6 @@ pub fn harness_export__(input: TokenStream) -> TokenStream {
             #(#registration)*
         }
     })
-}
-
-fn create_fn_schema_entry(
-    ident: &Ident,
-    arg_types: &[Type],
-    ret_types: &[Type],
-) -> syn::Result<()> {
-    match HARNESS_SCHEMA.lock() {
-        Ok(mut schema) => {
-            let args = arg_types.iter().map(|t| quote!(#t).to_string()).collect();
-            let rets = ret_types.iter().map(|t| quote!(#t).to_string()).collect();
-            schema.services.push(Service {
-                name: ident.to_string(),
-                args,
-                rets,
-            });
-
-            Ok(())
-        }
-        Err(e) => Err(syn::Error::new(Span::call_site(), e)),
-    }
 }
 
 fn create_harness_function(
@@ -241,16 +218,6 @@ fn create_harness_function(
         ));
     }
 
-    if let Ok(mut schema) = HARNESS_SCHEMA.lock() {
-        let args = arg_types.iter().map(|t| quote!(#t).to_string()).collect();
-        let rets = ret_types.iter().map(|t| quote!(#t).to_string()).collect();
-        schema.services.push(Service {
-            name: base_name,
-            args,
-            rets,
-        });
-    }
-
     Ok(TokenStream::from(harness_impl))
 }
 
@@ -279,52 +246,6 @@ fn get_args(sig: &Signature) -> syn::Result<(Vec<Type>, Vec<Type>)> {
 }
 
 #[proc_macro]
-pub fn get_schema(_: TokenStream) -> TokenStream {
-    let schema = HARNESS_SCHEMA
-        .lock()
-        .expect("schema has default values")
-        .clone();
-
-    let inter_schema = IntermediateSchema::from(schema);
-    let mut services = Vec::new();
-    for mut service in inter_schema.services {
-        service.args.iter_mut().for_each(|arg| {
-            to_candid_type(arg);
-        });
-        to_candid_type(&mut service.rets);
-
-        let name = service.name;
-        let rets = service.rets;
-        let args = service.args;
-        services.push(quote! {
-            harness_primitives::internals::Service {
-                name: String::from(#name),
-                args: vec![#(#args),*],
-                rets: #rets,
-            }
-        });
-    }
-
-    let version = {
-        let val = inter_schema.version;
-        quote!(String::from(#val))
-    };
-
-    let program = {
-        let val = inter_schema.program;
-        quote!(String::from(#val))
-    };
-
-    TokenStream::from(quote! {
-        harness_primitives::internals::Schema {
-            program: #program,
-            version: #version,
-            services: vec![#(#services),*],
-        }
-    })
-}
-
-#[proc_macro]
 pub fn get_binary__(_item: TokenStream) -> TokenStream {
     // get harness compiled code
     let path = std::path::Path::new(HARNESS_PATH);
@@ -346,23 +267,4 @@ pub fn get_binary__(_item: TokenStream) -> TokenStream {
         .expect("file read to succeed; qed");
 
     TokenStream::from(quote! { &[#(#buffer),*] })
-}
-
-fn to_candid_type(ty: &mut proc_macro2::TokenStream) {
-    match ty.is_empty() {
-        true => {
-            *ty = quote! {
-                ::candid::types::internal::TypeContainer::new().add::<()>().to_string()
-            }
-        }
-        false => {
-            *ty = {
-                // parse ty as a syn::Type
-                let _ty = syn::parse2::<Type>(ty.clone()).expect("failed to parse type");
-                quote! {
-                    ::candid::types::internal::TypeContainer::new().add::<#ty>().to_string()
-                }
-            }
-        }
-    }
 }
