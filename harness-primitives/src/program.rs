@@ -3,10 +3,7 @@ use std::str::FromStr;
 use crate::error::Error;
 
 /// This struct represents a program that can be loaded into the device.
-pub struct Program {
-    pub schema: crate::internals::Schema,
-    pub wasm: &'static [u8],
-}
+pub struct Program(pub &'static [u8]);
 
 /// The program identifier. It should be a human-readable identifier on the Harness network.
 /// TODO: parse? `<network>.<account_id>.<program_name>`

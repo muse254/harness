@@ -1,11 +1,10 @@
 //! This is is where the harness program is loaded at compile time, we create the arbiter to arbiter operations of the harness program.
 use std::cell::{Cell, RefCell};
 
-use harness_macros::{get_binary__, get_schema};
+use harness_macros::get_binary__;
 use harness_primitives::{
     error::{Error, Result},
-    internals::Schema,
-    program::{Program, ProgramId},
+    program::Program,
 };
 
 struct Arbiter {
@@ -21,7 +20,7 @@ thread_local! {
     #[allow(clippy::large_stack_frames)]
     static ARBITER: RefCell<Arbiter> = RefCell::new( Arbiter {
         devices: Vec::new(),
-        program: Program { schema: populate_schema(), wasm: get_binary__!() },
+        program: Program (get_binary__!() )
     });
 }
 
@@ -34,12 +33,12 @@ impl StateAccessor {
     }
 
     pub fn get_program_code() -> Vec<u8> {
-        ARBITER.with(|arbiter| arbiter.borrow().program.wasm.to_vec())
+        ARBITER.with(|arbiter| arbiter.borrow().program.0.to_vec())
     }
 
-    pub fn get_program_id() -> ProgramId {
-        ARBITER.with(|arbiter| ProgramId::new(arbiter.borrow().program.schema.program.clone()))
-    }
+    // pub fn get_program_id() -> ProgramId {
+    //     ARBITER.with(|arbiter| ProgramId::new(arbiter.borrow().program.schema.program.clone()))
+    // }
 
     pub fn get_next_device() -> Result<String> {
         ARBITER.with(|arbiter| {
@@ -74,16 +73,16 @@ impl StateAccessor {
         });
     }
 
-    pub fn get_schema() -> Schema {
-        ARBITER.with(|arbiter| arbiter.borrow().program.schema.clone())
-    }
+    // pub fn get_schema() -> Schema {
+    //     ARBITER.with(|arbiter| arbiter.borrow().program.schema.clone())
+    // }
 }
 
-fn populate_schema() -> Schema {
-    let mut schema = get_schema!();
-    schema.version =
-        std::env::var("CARGO_PKG_VERSION").expect("expected CARGO_PKG_VERSION to be set; qed");
-    schema.program =
-        std::env::var("CARGO_PKG_NAME").expect("expected CARGO_PKG_NAME to be set; qed");
-    schema
-}
+// fn populate_schema() -> Schema {
+//     let mut schema = get_schema!();
+//     schema.version =
+//         std::env::var("CARGO_PKG_VERSION").expect("expected CARGO_PKG_VERSION to be set; qed");
+//     schema.program =
+//         std::env::var("CARGO_PKG_NAME").expect("expected CARGO_PKG_NAME to be set; qed");
+//     schema
+// }

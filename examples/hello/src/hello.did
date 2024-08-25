@@ -11,6 +11,7 @@ type TransformArgs = record { context : blob; response : HttpResponse };
 service : {
   get_devices : () -> (vec text) query;
   get_program_code : () -> (blob) query;
+  get_program_id : () -> (text) query;
   get_schema : () -> (Schema) query;
   harness_transform : (TransformArgs) -> (HttpResponse) query;
   hello : (text) -> (HarnessResult);
