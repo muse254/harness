@@ -15,13 +15,13 @@ struct Arbiter {
 }
 
 thread_local! {
-    static NEXT_DEVICE_ID: Cell<usize> = const{ Cell::new(0)};// rudimentary round robin scheduling
+    static NEXT_DEVICE_ID: Cell<usize> = const { Cell::new(0)};// rudimentary round robin scheduling
 
     #[allow(clippy::large_stack_frames)]
-    static ARBITER: RefCell<Arbiter> = RefCell::new( Arbiter {
+    static ARBITER: RefCell<Arbiter> = const { RefCell::new( Arbiter {
         devices: Vec::new(),
-        program: Program (get_binary__!() )
-    });
+        program: Program(get_binary__!()),
+    })};
 }
 
 /// This is redirection that does not expose the ARBITER to the user.
@@ -35,10 +35,6 @@ impl StateAccessor {
     pub fn get_program_code() -> Vec<u8> {
         ARBITER.with(|arbiter| arbiter.borrow().program.0.to_vec())
     }
-
-    // pub fn get_program_id() -> ProgramId {
-    //     ARBITER.with(|arbiter| ProgramId::new(arbiter.borrow().program.schema.program.clone()))
-    // }
 
     pub fn get_next_device() -> Result<String> {
         ARBITER.with(|arbiter| {
@@ -72,17 +68,4 @@ impl StateAccessor {
             }
         });
     }
-
-    // pub fn get_schema() -> Schema {
-    //     ARBITER.with(|arbiter| arbiter.borrow().program.schema.clone())
-    // }
 }
-
-// fn populate_schema() -> Schema {
-//     let mut schema = get_schema!();
-//     schema.version =
-//         std::env::var("CARGO_PKG_VERSION").expect("expected CARGO_PKG_VERSION to be set; qed");
-//     schema.program =
-//         std::env::var("CARGO_PKG_NAME").expect("expected CARGO_PKG_NAME to be set; qed");
-//     schema
-// }
