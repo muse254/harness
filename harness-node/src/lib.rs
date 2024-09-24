@@ -6,7 +6,7 @@ use std::{
 
 use candid::Decode;
 use ic_agent::{export::Principal, Agent, AgentError};
-use tokio::{net::TcpListener, sync::Mutex};
+use tokio::net::TcpListener;
 
 use harness_primitives::{
     error::{Error, Result as HarnessResult},
@@ -16,7 +16,6 @@ use harness_primitives::{
 
 pub struct NodeServer<T: IcpAgent> {
     harness_os: HarnessOs,
-    lock_: Mutex<()>,
     icp_agent: T,
 }
 
@@ -26,7 +25,6 @@ where
 {
     NodeServer {
         harness_os: HarnessOs::default(),
-        lock_: Mutex::new(()),
         icp_agent: agent,
     }
 }
@@ -89,10 +87,9 @@ impl<T: IcpAgent> NodeServer<T> {
                     .await
                     .unwrap();
 
-                let _unused = self.lock_.lock().await;
-
                 self.harness_os
-                    .add_program(program.program_id.parse()?, &response)?;
+                    .add_program(program.program_id.parse()?, &response)
+                    .await?;
 
                 Ok(Response {
                     status_code: 202,
@@ -132,15 +129,13 @@ impl<T: IcpAgent> NodeServer<T> {
                     }
                 };
 
-                let _unused = self.lock_.lock().await;
-
                 println!("Program-ids: {:?}", self.harness_os.program_ids());
 
-                match self.harness_os.call_operation(
-                    &program_id.parse()?,
-                    procedure.trim(),
-                    &req.data,
-                ) {
+                match self
+                    .harness_os
+                    .call_operation(&program_id.parse()?, procedure.trim(), &req.data)
+                    .await
+                {
                     Ok(res) => Ok(Response {
                         status_code: 200,
                         data: Cursor::new(res),
@@ -164,7 +159,6 @@ impl<T: IcpAgent> NodeServer<T> {
                         inner: None,
                     })?;
 
-                let _unused = self.lock_.lock().await;
                 self.harness_os.remove_program(&program_id.parse()?);
 
                 Ok(Response {

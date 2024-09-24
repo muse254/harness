@@ -16,8 +16,8 @@ tokio = { version = "1.37.0", features = [
 syn = { version = "2" }
 proc-macro2 = { version = "1", default-features = false }
 quote = "1.0.7"
-wapc = { git = "https://github.com/muse254/wapc-rs.git", branch = "feat/async-context", optional = true } # fixme: https://github.com/wapc/wapc-rs/issues/92
-wasmtime-provider = { git = "https://github.com/muse254/wapc-rs.git", branch = "feat/async-context", optional = true } # fixme: https://github.com/wapc/wapc-rs/issues/92
+wapc = { version = "2", optional = true }
+wasmtime-provider = { version = "2", optional = true }
 candid_parser = "0.1.4"
 candid = "0.10.8"
 const_format = "0.2.32"
