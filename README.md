@@ -3,6 +3,8 @@
 
 # Harness
 
+> :warning: This repository has been archived to reiterate on the value proposition and design goals of the tech. Feel free to fork and make it your own or improve or just to play around with it.
+
 </div>
 
 [![Apache 2.0 licensed][license]][license-url]
